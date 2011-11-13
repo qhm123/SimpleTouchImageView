@@ -35,8 +35,7 @@ public class TouchImageActivity extends Activity {
 		mImage = (ImageViewTouch) findViewById(R.id.image);
 
 		String url = getIntent().getStringExtra("url");
-		// FIXME: for test
-		url = "/mnt/sdcard/DCIM/Camera/IMG_20111109_133446.jpg";
+		// url = "/mnt/sdcard/DCIM/Camera/IMG_20111109_133446.jpg";
 		Bitmap b = BitmapFactory.decodeFile(url);
 		if (b != null) {
 			mImage.setImageBitmapResetBase(b, true);
