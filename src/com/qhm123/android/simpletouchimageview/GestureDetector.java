@@ -45,6 +45,8 @@ public class GestureDetector {
 		 */
 		boolean onDown(MotionEvent e);
 
+		boolean onUp(MotionEvent e);
+
 		/**
 		 * The user has performed a down {@link MotionEvent} and not performed a
 		 * move or up yet. This event is commonly used to provide visual
@@ -189,6 +191,10 @@ public class GestureDetector {
 		}
 
 		public boolean onDown(MotionEvent e) {
+			return false;
+		}
+
+		public boolean onUp(MotionEvent e) {
 			return false;
 		}
 
@@ -624,6 +630,7 @@ public class GestureDetector {
 							velocityX, velocityY);
 				}
 			}
+			mListener.onUp(mCurrentDownEvent);
 			if (mPreviousUpEvent != null) {
 				mPreviousUpEvent.recycle();
 			}

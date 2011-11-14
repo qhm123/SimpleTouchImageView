@@ -350,9 +350,9 @@ class ImageViewTouch extends ImageView {
 	}
 
 	protected void zoomToNoCenter(float scale, float centerX, float centerY) {
-		if (scale > mMaxZoom) {
-			scale = mMaxZoom;
-		}
+//		if (scale > mMaxZoom) {
+//			scale = mMaxZoom;
+//		}
 
 		float oldScale = getScale();
 		float deltaScale = scale / oldScale;

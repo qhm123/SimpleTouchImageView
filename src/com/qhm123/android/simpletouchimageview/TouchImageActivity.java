@@ -67,49 +67,16 @@ public class TouchImageActivity extends Activity {
 	private void setupOnTouchListeners(View rootView) {
 		mGestureDetector = new GestureDetector(this, new MyGestureListener(),
 				null, true);
-
 		mScaleGestureDetector = new ScaleGestureDetector(this,
-				new ScaleGestureDetector.SimpleOnScaleGestureListener() {
-
-					@Override
-					public void onScaleEnd(ScaleGestureDetector detector) {
-						mImage.center(true, true);
-						updateZoomButtonsEnabled();
-						mOnScale = false;
-						Log.d(TAG, "gesture onScaleEnd");
-					}
-
-					@Override
-					public boolean onScaleBegin(ScaleGestureDetector detector) {
-						Log.d(TAG, "gesture onScaleStart");
-						mOnScale = true;
-						return true;
-					}
-
-					@Override
-					public boolean onScale(ScaleGestureDetector detector,
-							float mx, float my) {
-						Log.d(TAG, "gesture onScale");
-						float ns = mImage.getScale()
-								* detector.getScaleFactor();
-						if (ns > mImage.mMaxZoom) {
-							ns = mImage.mMaxZoom;
-						} else if (ns < 1f) {
-							ns = 1f;
-						}
-
-						if (detector.isInProgress()) {
-							mImage.zoomToNoCenter(ns, mx, my);
-						}
-						return true;
-					}
-				});
+				new MyOnScaleGestureListener());
 
 		OnTouchListener rootListener = new OnTouchListener() {
 			public boolean onTouch(View v, MotionEvent event) {
 
 				// NOTE: gestureDetector may handle onScroll..
-				mGestureDetector.onTouchEvent(event);
+				if (!mOnScale && event.getPointerCount() == 1) {
+					mGestureDetector.onTouchEvent(event);
+				}
 				mScaleGestureDetector.onTouchEvent(event);
 
 				// We do not use the return value of
@@ -177,11 +144,19 @@ public class TouchImageActivity extends Activity {
 				return false;
 			}
 			ImageViewTouch imageView = mImage;
-			if (imageView.getScale() > 1F) {
-				imageView.postTranslate(-distanceX, -distanceY);
-				imageView.center(true, true);
-			}
+			// if (imageView.getScale() > 1F) {
+			// imageView.postTranslate(-distanceX, -distanceY);
+			imageView.panBy(-distanceX, -distanceY);
+
+			// imageView.center(true, true);
+			// }
 			return true;
+		}
+
+		@Override
+		public boolean onUp(MotionEvent e) {
+			mImage.center(true, true);
+			return super.onUp(e);
 		}
 
 		@Override
@@ -201,6 +176,57 @@ public class TouchImageActivity extends Activity {
 				mImage.zoomTo(1f);
 			} else {
 				mImage.zoomToPoint(3f, e.getX(), e.getY());
+			}
+			return true;
+		}
+	}
+
+	private class MyOnScaleGestureListener extends
+			ScaleGestureDetector.SimpleOnScaleGestureListener {
+
+		float currentScale;
+		float currentMiddleX;
+		float currentMiddleY;
+
+		@Override
+		public void onScaleEnd(ScaleGestureDetector detector) {
+
+			updateZoomButtonsEnabled();
+
+			if (currentScale > mImage.mMaxZoom) {
+				currentScale = mImage.mMaxZoom;
+			} else if (currentScale < 1f) {
+				currentScale = 1f;
+			}
+			mImage.zoomToNoCenter(currentScale, currentMiddleX, currentMiddleY);
+//			mImage.center(true, true);
+
+			mOnScale = false;
+			Log.d(TAG, "gesture onScaleEnd");
+		}
+
+		@Override
+		public boolean onScaleBegin(ScaleGestureDetector detector) {
+			Log.d(TAG, "gesture onScaleStart");
+			mOnScale = true;
+			return true;
+		}
+
+		@Override
+		public boolean onScale(ScaleGestureDetector detector, float mx, float my) {
+			Log.d(TAG, "gesture onScale");
+			float ns = mImage.getScale() * detector.getScaleFactor();
+			// if (ns > mImage.mMaxZoom) {
+			// ns = mImage.mMaxZoom;
+			// } else if (ns < 1f) {
+			// ns = 1f;
+			// }
+			currentScale = ns;
+			currentMiddleX = mx;
+			currentMiddleY = my;
+
+			if (detector.isInProgress()) {
+				mImage.zoomToNoCenter(ns, mx, my);
 			}
 			return true;
 		}
