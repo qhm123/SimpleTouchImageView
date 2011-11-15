@@ -62,6 +62,7 @@ class ImageViewTouch extends ImageView {
 
 	float mMaxZoom;
 	float mMinZoom;
+	float mBaseZoom;
 
 	// ImageViewTouchBase will pass a Bitmap to the Recycler if it has finished
 	// its use of that Bitmap.
@@ -178,6 +179,7 @@ class ImageViewTouch extends ImageView {
 		setImageMatrix(getImageViewMatrix());
 		mMaxZoom = maxZoom();
 		mMinZoom = minZoom();
+		mBaseZoom = getScale(mBaseMatrix);
 	}
 
 	// Center as much as possible in one or both axis. Centering is
@@ -416,10 +418,13 @@ class ImageViewTouch extends ImageView {
 		// Zoom out to at most 1x.
 		Matrix tmp = new Matrix(mSuppMatrix);
 		tmp.postScale(1F / rate, 1F / rate, cx, cy);
-
-		if (getScale(tmp) < 1F) {
-			mSuppMatrix.setScale(1F, 1F, cx, cy);
-		} else {
+		if (getScale(tmp) < mMinZoom) {
+			mSuppMatrix.setScale(mMinZoom, mMinZoom, cx, cy);
+		}
+		// if (getScale(tmp) < 1F) {
+		// mSuppMatrix.setScale(1F, 1F, cx, cy);
+		// }
+		else {
 			mSuppMatrix.postScale(1F / rate, 1F / rate, cx, cy);
 		}
 		setImageMatrix(getImageViewMatrix());

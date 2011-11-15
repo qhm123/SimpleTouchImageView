@@ -49,7 +49,7 @@ public class TouchImageActivity extends Activity {
 		ImageViewTouch imageView = mImage;
 		float scale = imageView.getScale();
 		mZoomButtonsController.setZoomInEnabled(scale < imageView.mMaxZoom);
-		mZoomButtonsController.setZoomOutEnabled(scale > 1);
+		mZoomButtonsController.setZoomOutEnabled(scale > imageView.mMinZoom);
 	}
 
 	@Override
@@ -174,11 +174,21 @@ public class TouchImageActivity extends Activity {
 			}
 			ImageViewTouch imageView = mImage;
 			// Switch between the original scale and 3x scale.
-			if (imageView.getScale() > 2F) {
-				mImage.zoomTo(1f);
+			if (imageView.mBaseZoom < 1) {
+				if (imageView.getScale() > 2F) {
+					mImage.zoomTo(1f);
+				} else {
+					mImage.zoomToPoint(3f, e.getX(), e.getY());
+				}
 			} else {
-				mImage.zoomToPoint(3f, e.getX(), e.getY());
+				if (imageView.getScale() > (imageView.mMinZoom + imageView.mMaxZoom) / 2f) {
+					mImage.zoomTo(imageView.mMinZoom);
+				} else {
+					mImage.zoomToPoint(imageView.mMaxZoom, e.getX(), e.getY());
+				}
 			}
+
+			updateZoomButtonsEnabled();
 			return true;
 		}
 	}
