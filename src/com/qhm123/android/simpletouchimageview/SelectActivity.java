@@ -47,8 +47,8 @@ public class SelectActivity extends Activity implements OnClickListener {
 				String photoTemp = c.getString(c.getColumnIndex("_data"));
 				// uploadImage(photoTemp);
 				Log.d(TAG, "photo url: " + photoTemp);
-				// Intent i = new Intent(SelectActivity.this, ViewImage.class);
-				Intent i = new Intent(SelectActivity.this, TouchImageActivity.class);
+				Intent i = new Intent(SelectActivity.this,
+						TouchImageActivity.class);
 				i.putExtra("url", photoTemp);
 				startActivity(i);
 				break;

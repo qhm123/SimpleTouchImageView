@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
@@ -21,10 +22,8 @@ public class TouchImageActivity extends Activity {
 	private ZoomButtonsController mZoomButtonsController;
 
 	private GestureDetector mGestureDetector;
-	private ScaleGestureDetector mScaleGestureDetector;
 
 	private boolean mPaused;
-	private boolean mOnScale = false;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -35,7 +34,6 @@ public class TouchImageActivity extends Activity {
 		mImage = (ImageViewTouch) findViewById(R.id.image);
 
 		String url = getIntent().getStringExtra("url");
-		// url = "/mnt/sdcard/DCIM/Camera/IMG_20111109_133446.jpg";
 		Bitmap b = BitmapFactory.decodeFile(url);
 		if (b != null) {
 			mImage.setImageBitmapResetBase(b, true);
@@ -49,7 +47,7 @@ public class TouchImageActivity extends Activity {
 		ImageViewTouch imageView = mImage;
 		float scale = imageView.getScale();
 		mZoomButtonsController.setZoomInEnabled(scale < imageView.mMaxZoom);
-		mZoomButtonsController.setZoomOutEnabled(scale > 1);
+		mZoomButtonsController.setZoomOutEnabled(scale > imageView.mMinZoom);
 	}
 
 	@Override
@@ -65,19 +63,13 @@ public class TouchImageActivity extends Activity {
 	}
 
 	private void setupOnTouchListeners(View rootView) {
-		mGestureDetector = new GestureDetector(this, new MyGestureListener(),
-				null, true);
-		mScaleGestureDetector = new ScaleGestureDetector(this,
-				new MyOnScaleGestureListener());
+		mGestureDetector = new GestureDetector(this, new MyGestureListener());
 
 		OnTouchListener rootListener = new OnTouchListener() {
 			public boolean onTouch(View v, MotionEvent event) {
 
 				// NOTE: gestureDetector may handle onScroll..
-				if (!mOnScale && event.getPointerCount() == 1) {
-					mGestureDetector.onTouchEvent(event);
-				}
-				mScaleGestureDetector.onTouchEvent(event);
+				mGestureDetector.onTouchEvent(event);
 
 				// We do not use the return value of
 				// mGestureDetector.onTouchEvent because we will not receive
@@ -109,7 +101,6 @@ public class TouchImageActivity extends Activity {
 	}
 
 	private void setupZoomButtonController(final View ownerView) {
-		// NOTE: ZoomButtonsController 会 捕获 ownerView的onTouch事件!
 		mZoomButtonsController = new ZoomButtonsController(ownerView);
 		mZoomButtonsController.setZoomSpeed(100);
 		mZoomButtonsController.getZoomControls();
@@ -138,27 +129,14 @@ public class TouchImageActivity extends Activity {
 		@Override
 		public boolean onScroll(MotionEvent e1, MotionEvent e2,
 				float distanceX, float distanceY) {
-			Log.d(TAG, "gesture onScroll");
-			if (mOnScale) {
-				return true;
-			}
 			if (mPaused) {
 				return false;
 			}
 			ImageViewTouch imageView = mImage;
-			// if (imageView.getScale() > 1F) {
-			// imageView.postTranslate(-distanceX, -distanceY);
 			imageView.panBy(-distanceX, -distanceY);
+			imageView.center(true, true);
 
-			// imageView.center(true, true);
-			// }
 			return true;
-		}
-
-		@Override
-		public boolean onUp(MotionEvent e) {
-			mImage.center(true, true);
-			return super.onUp(e);
 		}
 
 		@Override
@@ -174,62 +152,21 @@ public class TouchImageActivity extends Activity {
 			}
 			ImageViewTouch imageView = mImage;
 			// Switch between the original scale and 3x scale.
-			if (imageView.getScale() > 2F) {
-				mImage.zoomTo(1f);
+			Log.d(TAG, "scale: " + imageView.getScale());
+			if (imageView.mBaseZoom < 1) {
+				if (imageView.getScale() > 2f) {
+					mImage.zoomTo(1f);
+				} else {
+					mImage.zoomToPoint(3f, e.getX(), e.getY());
+				}
 			} else {
-				mImage.zoomToPoint(3f, e.getX(), e.getY());
+				if (imageView.getScale() > (imageView.mMinZoom + imageView.mMaxZoom) / 2f) {
+					mImage.zoomTo(imageView.mMinZoom);
+				} else {
+					mImage.zoomToPoint(imageView.mMaxZoom, e.getX(), e.getY());
+				}
 			}
-			return true;
-		}
-	}
-
-	private class MyOnScaleGestureListener extends
-			ScaleGestureDetector.SimpleOnScaleGestureListener {
-
-		float currentScale;
-		float currentMiddleX;
-		float currentMiddleY;
-
-		@Override
-		public void onScaleEnd(ScaleGestureDetector detector) {
-
 			updateZoomButtonsEnabled();
-
-			if (currentScale > mImage.mMaxZoom) {
-				currentScale = mImage.mMaxZoom;
-			} else if (currentScale < mImage.mMinZoom) {
-				currentScale = mImage.mMinZoom;
-			}
-			mImage.zoomToNoCenter(currentScale, currentMiddleX, currentMiddleY);
-			// mImage.center(true, true);
-
-			mOnScale = false;
-			Log.d(TAG, "gesture onScaleEnd");
-		}
-
-		@Override
-		public boolean onScaleBegin(ScaleGestureDetector detector) {
-			Log.d(TAG, "gesture onScaleStart");
-			mOnScale = true;
-			return true;
-		}
-
-		@Override
-		public boolean onScale(ScaleGestureDetector detector, float mx, float my) {
-			Log.d(TAG, "gesture onScale");
-			float ns = mImage.getScale() * detector.getScaleFactor();
-			// if (ns > mImage.mMaxZoom) {
-			// ns = mImage.mMaxZoom;
-			// } else if (ns < 1f) {
-			// ns = 1f;
-			// }
-			currentScale = ns;
-			currentMiddleX = mx;
-			currentMiddleY = my;
-
-			if (detector.isInProgress()) {
-				mImage.zoomToNoCenter(ns, mx, my);
-			}
 			return true;
 		}
 	}

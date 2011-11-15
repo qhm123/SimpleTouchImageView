@@ -24,7 +24,6 @@ import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.widget.ImageView;
 
 class ImageViewTouch extends ImageView {
@@ -62,6 +61,7 @@ class ImageViewTouch extends ImageView {
 
 	float mMaxZoom;
 	float mMinZoom;
+	float mBaseZoom;
 
 	// ImageViewTouchBase will pass a Bitmap to the Recycler if it has finished
 	// its use of that Bitmap.
@@ -90,29 +90,6 @@ class ImageViewTouch extends ImageView {
 			getProperBaseMatrix(mBitmapDisplayed, mBaseMatrix);
 			setImageMatrix(getImageViewMatrix());
 		}
-	}
-
-	@Override
-	public boolean onKeyDown(int keyCode, KeyEvent event) {
-		if (keyCode == KeyEvent.KEYCODE_BACK && event.getRepeatCount() == 0) {
-			event.startTracking();
-			return true;
-		}
-		return super.onKeyDown(keyCode, event);
-	}
-
-	@Override
-	public boolean onKeyUp(int keyCode, KeyEvent event) {
-		if (keyCode == KeyEvent.KEYCODE_BACK && event.isTracking()
-				&& !event.isCanceled()) {
-			if (getScale() > 1.0f) {
-				// If we're zoomed in, pressing Back jumps out to show the
-				// entire image, otherwise Back returns the user to the gallery.
-				zoomTo(1.0f);
-				return true;
-			}
-		}
-		return super.onKeyUp(keyCode, event);
 	}
 
 	protected Handler mHandler = new Handler();
@@ -178,6 +155,7 @@ class ImageViewTouch extends ImageView {
 		setImageMatrix(getImageViewMatrix());
 		mMaxZoom = maxZoom();
 		mMinZoom = minZoom();
+		mBaseZoom = getScale(mBaseMatrix);
 	}
 
 	// Center as much as possible in one or both axis. Centering is
@@ -417,8 +395,8 @@ class ImageViewTouch extends ImageView {
 		Matrix tmp = new Matrix(mSuppMatrix);
 		tmp.postScale(1F / rate, 1F / rate, cx, cy);
 
-		if (getScale(tmp) < 1F) {
-			mSuppMatrix.setScale(1F, 1F, cx, cy);
+		if (getScale(tmp) < mMinZoom) {
+			mSuppMatrix.setScale(mMinZoom, mMinZoom, cx, cy);
 		} else {
 			mSuppMatrix.postScale(1F / rate, 1F / rate, cx, cy);
 		}
