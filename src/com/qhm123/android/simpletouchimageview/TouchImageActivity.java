@@ -103,6 +103,8 @@ public class TouchImageActivity extends Activity {
 		if (mZoomButtonsController != null) {
 			mZoomButtonsController.setVisible(false);
 		}
+		mImage.mBitmapDisplayed.recycle();
+		mImage.clear();
 		super.onDestroy();
 	}
 
@@ -195,11 +197,11 @@ public class TouchImageActivity extends Activity {
 
 			if (currentScale > mImage.mMaxZoom) {
 				currentScale = mImage.mMaxZoom;
-			} else if (currentScale < 1f) {
-				currentScale = 1f;
+			} else if (currentScale < mImage.mMinZoom) {
+				currentScale = mImage.mMinZoom;
 			}
 			mImage.zoomToNoCenter(currentScale, currentMiddleX, currentMiddleY);
-//			mImage.center(true, true);
+			// mImage.center(true, true);
 
 			mOnScale = false;
 			Log.d(TAG, "gesture onScaleEnd");

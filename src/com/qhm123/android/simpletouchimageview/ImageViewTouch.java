@@ -23,6 +23,7 @@ import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.widget.ImageView;
 
@@ -60,6 +61,7 @@ class ImageViewTouch extends ImageView {
 	int mThisWidth = -1, mThisHeight = -1;
 
 	float mMaxZoom;
+	float mMinZoom;
 
 	// ImageViewTouchBase will pass a Bitmap to the Recycler if it has finished
 	// its use of that Bitmap.
@@ -175,6 +177,7 @@ class ImageViewTouch extends ImageView {
 		}
 		setImageMatrix(getImageViewMatrix());
 		mMaxZoom = maxZoom();
+		mMinZoom = minZoom();
 	}
 
 	// Center as much as possible in one or both axis. Centering is
@@ -266,13 +269,22 @@ class ImageViewTouch extends ImageView {
 		// a small icon.
 		float widthScale = Math.min(viewWidth / w, 3.0f);
 		float heightScale = Math.min(viewHeight / h, 3.0f);
+
+		// float widthScale = viewWidth / w;
+		// float heightScale = viewHeight / h;
 		float scale = Math.min(widthScale, heightScale);
+		Log.d(TAG, "scale: " + scale);
 
 		matrix.postConcat(bitmap.getRotateMatrix());
+
+		// if (scale < 1F) {
 		matrix.postScale(scale, scale);
 
 		matrix.postTranslate((viewWidth - w * scale) / 2F, (viewHeight - h
 				* scale) / 2F);
+		// } else {
+		// matrix.postTranslate((viewWidth - w) / 2F, (viewHeight - h) / 2F);
+		// }
 	}
 
 	// Combine the base matrix and the supp matrix to make the final matrix.
@@ -299,6 +311,15 @@ class ImageViewTouch extends ImageView {
 		float fh = (float) mBitmapDisplayed.getHeight() / (float) mThisHeight;
 		float max = Math.max(fw, fh) * 4;
 		return max;
+	}
+
+	protected float minZoom() {
+		float baseScale = getScale(mBaseMatrix);
+		if (baseScale < 1) {
+			return 1F;
+		} else {
+			return 1F / baseScale;
+		}
 	}
 
 	protected void zoomTo(float scale, float centerX, float centerY) {
@@ -350,9 +371,9 @@ class ImageViewTouch extends ImageView {
 	}
 
 	protected void zoomToNoCenter(float scale, float centerX, float centerY) {
-//		if (scale > mMaxZoom) {
-//			scale = mMaxZoom;
-//		}
+		// if (scale > mMaxZoom) {
+		// scale = mMaxZoom;
+		// }
 
 		float oldScale = getScale();
 		float deltaScale = scale / oldScale;
