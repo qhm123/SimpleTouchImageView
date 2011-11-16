@@ -50,7 +50,7 @@ class ImageViewTouch extends ImageView {
 
 	// This is the final matrix which is computed as the concatentation
 	// of the base matrix and the supplementary matrix.
-	private final Matrix mDisplayMatrix = new Matrix();
+	protected final Matrix mDisplayMatrix = new Matrix();
 
 	// Temporary buffer used for getting the values out of a matrix.
 	private final float[] mMatrixValues = new float[9];
