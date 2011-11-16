@@ -8,9 +8,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.android.camera.gallery.IImage;
-import com.android.camera.gallery.IImageList;
-
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -25,16 +22,16 @@ import android.view.View;
 import android.view.View.OnTouchListener;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.RelativeLayout;
+import android.widget.ViewSwitcher;
 import android.widget.ZoomButtonsController;
 
 public class TouchImageActivity extends Activity {
 
 	public static final String TAG = TouchImageActivity.class.getSimpleName();
+	private static final int PAGER_MARGIN_DP = 40;
 
-	private ImageViewTouch mImage;
 	private RelativeLayout mRootLayout;
 	private ViewPager mViewPager;
-	// Gallery
 
 	private ImagePagerAdapter mPagerAdapter;
 
@@ -47,222 +44,61 @@ public class TouchImageActivity extends Activity {
 	private boolean mPaused;
 	private boolean mOnScale = false;
 	private boolean mOnPagerScoll = false;
-	private int mPosition = -1;
-	private IImageList mAllImages;
-
-	private ImageGetter mGetter;
-	final GetterHandler mHandler = new GetterHandler();
-
-	private class ImagePagerAdapter extends PagerAdapter {
-		public Map<Integer, Object> views = new HashMap<Integer, Object>();
-
-		@Override
-		public int getCount() {
-			// Log.d(TAG, "getCount");
-			return mImageList.size();
-		}
-
-		@Override
-		public Object instantiateItem(View container, int position) {
-			Log.d(TAG, "instantiateItem");
-			ImageViewTouch imageView = new ImageViewTouch(
-					TouchImageActivity.this);
-			imageView.setLayoutParams(new LayoutParams(
-					LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT));
-			imageView.setBackgroundColor(Color.BLACK);
-			imageView.setFocusableInTouchMode(true);
-
-			Bitmap b = decodeFile(new File(mImageList.get(position)));
-			// Bitmap b = BitmapFactory.decodeFile(mImageList.get(position));
-			imageView.setImageBitmapResetBase(b, true);
-
-			((ViewPager) container).addView(imageView);
-			views.put(position, imageView);
-
-			imageView.setRecycler(mCache);
-
-			return imageView;
-		}
-
-		@Override
-		public void destroyItem(View container, int position, Object object) {
-			Log.d(TAG, "destroyItem");
-			ImageViewTouch imageView = (ImageViewTouch) object;
-			imageView.mBitmapDisplayed.recycle();
-			imageView.clear();
-			((ViewPager) container).removeView(imageView);
-			views.remove(position);
-		}
-
-		@Override
-		public void startUpdate(View container) {
-			Log.d(TAG, "startUpdate");
-		}
-
-		@Override
-		public void finishUpdate(View container) {
-			Log.d(TAG, "finishUpdate");
-		}
-
-		@Override
-		public boolean isViewFromObject(View view, Object object) {
-			Log.d(TAG, "isViewFromObject");
-			return view == ((ImageViewTouch) object);
-		}
-
-		@Override
-		public Parcelable saveState() {
-			Log.d(TAG, "saveState");
-			return null;
-		}
-
-		@Override
-		public void restoreState(Parcelable state, ClassLoader loader) {
-			Log.d(TAG, "restoreState");
-		}
-
-	}
-
-	private BitmapCache mCache;
-
-	void setImage(int pos, boolean showControls) {
-		mPosition = pos;
-
-		Bitmap b = mCache.getBitmap(pos);
-		if (b != null) {
-			IImage image = mAllImages.getImageAt(pos);
-			mImage.setImageRotateBitmapResetBase(
-					new RotateBitmap(b, image.getDegreesRotated()), true);
-			updateZoomButtonsEnabled();
-		}
-
-		ImageGetterCallback cb = new ImageGetterCallback() {
-			public void completed() {
-			}
-
-			public boolean wantsThumbnail(int pos, int offset) {
-				return !mCache.hasBitmap(pos + offset);
-			}
-
-			public boolean wantsFullImage(int pos, int offset) {
-				return offset == 0;
-			}
-
-			public int fullImageSizeToUse(int pos, int offset) {
-				// this number should be bigger so that we can zoom. we may
-				// need to get fancier and read in the fuller size image as the
-				// user starts to zoom.
-				// Originally the value is set to 480 in order to avoid OOM.
-				// Now we set it to 2048 because of using
-				// native memory allocation for Bitmaps.
-				final int imageViewSize = 2048;
-				return imageViewSize;
-			}
-
-			public void imageLoaded(int pos, int offset, RotateBitmap bitmap,
-					boolean isThumb) {
-				// shouldn't get here after onPause()
-
-				// We may get a result from a previous request. Ignore it.
-				if (pos != mPosition) {
-					bitmap.recycle();
-					return;
-				}
-
-				if (isThumb) {
-					mCache.put(pos + offset, bitmap.getBitmap());
-				}
-				if (offset == 0) {
-					// isThumb: We always load thumb bitmap first, so we will
-					// reset the supp matrix for then thumb bitmap, and keep
-					// the supp matrix when the full bitmap is loaded.
-					getCurrentImageView().setImageRotateBitmapResetBase(bitmap,
-							isThumb);
-					updateZoomButtonsEnabled();
-				}
-			}
-
-			@Override
-			public int[] loadOrder() {
-				return new int[] { 0, 1, -1 };
-			}
-		};
-
-		// Could be null if we're stopping a slide show in the course of pausing
-		if (mGetter != null) {
-			mGetter.setPosition(pos, cb, mAllImages, mHandler);
-		}
-	}
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.viewpager);
-		mImageList = new ArrayList<String>();
 
 		mRootLayout = (RelativeLayout) findViewById(R.id.rootLayout);
-		// mImage = (ImageViewTouch) findViewById(R.id.image);
-		// mImage1 = (ImageViewTouch) findViewById(R.id.image1);
-		// mViewSwitcher = (ViewSwitcher) findViewById(R.id.viewSwitcher);
 		mViewPager = (ViewPager) findViewById(R.id.viewPager);
-		mViewPager.setPageMargin(40);
+
+		final float scale = getResources().getDisplayMetrics().density;
+		int pagerMarginPixels = (int) (PAGER_MARGIN_DP * scale + 0.5f);
+		mViewPager.setPageMargin(pagerMarginPixels);
 
 		mPagerAdapter = new ImagePagerAdapter();
 		mViewPager.setAdapter(mPagerAdapter);
+		mViewPager.setOnPageChangeListener(mPageChangeListener);
 
-		String url = getIntent().getStringExtra("url");
-		// url = "/mnt/sdcard/DCIM/Camera/IMG_20111109_133446.jpg";
-		// Bitmap b = BitmapFactory.decodeFile(url);
+		mImageList = new ArrayList<String>();
 		for (File file : new File("/mnt/sdcard/MIUI/photo/cars").listFiles()) {
 			mImageList.add(file.getPath());
 		}
 
-		// Bitmap b0 = decodeFile(new File(mImageList.get(0)));
-		// Bitmap b1 = decodeFile(new File(mImageList.get(1)));
-		// if (b0 != null) {
-		// mImage.setImageBitmapResetBase(b0, true);
-		// mImage1.setImageBitmapResetBase(b1, true);
-		// }
-
-		mViewPager
-				.setOnPageChangeListener(new ViewPager.OnPageChangeListener() {
-
-					@Override
-					public void onPageSelected(int position) {
-						Log.d(TAG, "onPageSelected" + position);
-						// mImage = (ImageViewTouch) mViewPager
-						// .getChildAt(position);
-						mImage = (ImageViewTouch) mViewPager
-								.getChildAt(position);
-						mPosition = position;
-					}
-
-					@Override
-					public void onPageScrolled(int position,
-							float positionOffset, int positionOffsetPixels) {
-						Log.d(TAG, "onPageScrolled");
-						mOnPagerScoll = true;
-					}
-
-					@Override
-					public void onPageScrollStateChanged(int state) {
-						Log.d(TAG, "onPageScrollStateChanged");
-						if (state == ViewPager.SCROLL_STATE_DRAGGING) {
-							mOnPagerScoll = true;
-						} else if (state == ViewPager.SCROLL_STATE_SETTLING) {
-							mOnPagerScoll = false;
-						} else {
-							mOnPagerScoll = false;
-						}
-					}
-				});
-
-		mGetter = new ImageGetter(getContentResolver());
-		mCache = new BitmapCache(3);
-
 		setupZoomButtonController(mRootLayout);
 		setupOnTouchListeners(mViewPager);
 	}
+
+	ViewPager.OnPageChangeListener mPageChangeListener = new ViewPager.OnPageChangeListener() {
+		@Override
+		public void onPageSelected(int position, int prePosition) {
+			Log.d(TAG, "onPageSelected" + position + ", prePosition: "
+					+ prePosition);
+			ImageViewTouch preImageView = mPagerAdapter.views.get(prePosition);
+			preImageView.setImageBitmapResetBase(
+					preImageView.mBitmapDisplayed.getBitmap(), true);
+		}
+
+		@Override
+		public void onPageScrolled(int position, float positionOffset,
+				int positionOffsetPixels) {
+			Log.d(TAG, "onPageScrolled");
+			mOnPagerScoll = true;
+		}
+
+		@Override
+		public void onPageScrollStateChanged(int state) {
+			Log.d(TAG, "onPageScrollStateChanged: " + state);
+			if (state == ViewPager.SCROLL_STATE_DRAGGING) {
+				mOnPagerScoll = true;
+			} else if (state == ViewPager.SCROLL_STATE_SETTLING) {
+				mOnPagerScoll = false;
+			} else {
+				mOnPagerScoll = false;
+			}
+		}
+	};
 
 	// decodes image and scales it to reduce memory consumption
 	private Bitmap decodeFile(File f) {
@@ -323,11 +159,8 @@ public class TouchImageActivity extends Activity {
 
 		OnTouchListener rootListener = new OnTouchListener() {
 			public boolean onTouch(View v, MotionEvent event) {
-				// Log.d(TAG, "current item: " + mViewPager.getCurrentItem());
 				// NOTE: gestureDetector may handle onScroll..
 				if (!mOnScale && event.getPointerCount() == 1) {
-					// mViewPager.onInterceptTouchEvent(event);
-					// mViewPager.onTouchEvent(event);
 					if (!mOnPagerScoll) {
 						mGestureDetector.onTouchEvent(event);
 					}
@@ -337,29 +170,22 @@ public class TouchImageActivity extends Activity {
 					mScaleGestureDetector.onTouchEvent(event);
 				}
 
-				// mViewPager.onTouchEvent(event);
-
 				ImageViewTouch imageView = getCurrentImageView();
 				if (!mOnScale && !(event.getPointerCount() > 1)) {
-					Log.d(TAG, "imageView.getScale(): " + imageView.getScale()
-							+ ", " + imageView.mBaseZoom);
-					if (imageView.getScale() < imageView.mBaseZoom) {
-						// 计算边界
-						Log.d(TAG, "<");
-						Matrix m = imageView.getImageViewMatrix();
-						RectF rect = new RectF(0, 0, imageView.mBitmapDisplayed
-								.getBitmap().getWidth(),
-								imageView.mBitmapDisplayed.getBitmap()
-										.getHeight());
-						m.mapRect(rect);
-						float diff = imageView.getWidth() - rect.right;
-						Log.d(TAG, "diff: " + diff);
-						if (diff >= -0.1f) {
-							mViewPager.onTouchEvent(event);
-						}
-
-						// float transX = imageView.getValue(
-						// imageView.mDisplayMatrix, Matrix.MTRANS_X);
+					Matrix m = imageView.getImageViewMatrix();
+					RectF rect = new RectF(0, 0, imageView.mBitmapDisplayed
+							.getBitmap().getWidth(), imageView.mBitmapDisplayed
+							.getBitmap().getHeight());
+					m.mapRect(rect);
+					Log.d(TAG, "rect.right: " + rect.right + ", rect.left: "
+							+ rect.left + ", imageView.getWidth(): "
+							+ imageView.getWidth());
+					if (rect.right > imageView.getWidth() + 0.1
+							&& rect.left < -0.1) {
+						// float diff = imageView.getWidth() - rect.right;
+						// if (diff >= -0.1f) {
+						// mViewPager.onTouchEvent(event);
+						// }
 					} else {
 						try {
 							mViewPager.onTouchEvent(event);
@@ -400,7 +226,6 @@ public class TouchImageActivity extends Activity {
 	}
 
 	private void setupZoomButtonController(final View ownerView) {
-		// NOTE: ZoomButtonsController 会 捕获 ownerView的onTouch事件!
 		mZoomButtonsController = new ZoomButtonsController(ownerView);
 		mZoomButtonsController.setZoomSpeed(100);
 		mZoomButtonsController.getZoomControls();
@@ -424,11 +249,6 @@ public class TouchImageActivity extends Activity {
 	}
 
 	private ImageViewTouch getCurrentImageView() {
-		// if (mPosition == -1) {
-		// mPosition = 0;
-		// }
-		// return (ImageViewTouch) mViewPager.getChildAt(mPosition);
-		// mViewPager.get
 		return (ImageViewTouch) mPagerAdapter.views.get((mViewPager
 				.getCurrentItem()));
 	}
@@ -515,9 +335,14 @@ public class TouchImageActivity extends Activity {
 			}
 			imageView.zoomToNoCenter(currentScale, currentMiddleX,
 					currentMiddleY);
-			// mImage.center(true, true);
+			imageView.center(true, true);
 
-			mOnScale = false;
+			imageView.postDelayed(new Runnable() {
+				@Override
+				public void run() {
+					mOnScale = false;
+				}
+			}, 300);
 			Log.d(TAG, "gesture onScaleEnd");
 		}
 
@@ -544,115 +369,71 @@ public class TouchImageActivity extends Activity {
 			return true;
 		}
 	}
-}
 
-// This is a cache for Bitmap displayed in ViewImage (normal mode, thumb only).
-class BitmapCache implements ImageViewTouch.Recycler {
-	public static class Entry {
-		int mPos;
-		Bitmap mBitmap;
+	private class ImagePagerAdapter extends PagerAdapter {
+		public Map<Integer, ImageViewTouch> views = new HashMap<Integer, ImageViewTouch>();
 
-		public Entry() {
-			clear();
+		@Override
+		public int getCount() {
+			// Log.d(TAG, "getCount");
+			return mImageList.size();
 		}
 
-		public void clear() {
-			mPos = -1;
-			mBitmap = null;
-		}
-	}
+		@Override
+		public Object instantiateItem(View container, int position) {
+			Log.d(TAG, "instantiateItem");
+			ImageViewTouch imageView = new ImageViewTouch(
+					TouchImageActivity.this);
+			imageView.setLayoutParams(new LayoutParams(
+					LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT));
+			imageView.setBackgroundColor(Color.BLACK);
+			imageView.setFocusableInTouchMode(true);
 
-	private final Entry[] mCache;
+			Bitmap b = decodeFile(new File(mImageList.get(position)));
+			// Bitmap b = BitmapFactory.decodeFile(mImageList.get(position));
+			imageView.setImageBitmapResetBase(b, true);
 
-	public BitmapCache(int size) {
-		mCache = new Entry[size];
-		for (int i = 0; i < mCache.length; i++) {
-			mCache[i] = new Entry();
-		}
-	}
+			((ViewPager) container).addView(imageView);
+			views.put(position, imageView);
 
-	// Given the position, find the associated entry. Returns null if there is
-	// no such entry.
-	private Entry findEntry(int pos) {
-		for (Entry e : mCache) {
-			if (pos == e.mPos) {
-				return e;
-			}
-		}
-		return null;
-	}
-
-	// Returns the thumb bitmap if we have it, otherwise return null.
-	public synchronized Bitmap getBitmap(int pos) {
-		Entry e = findEntry(pos);
-		if (e != null) {
-			return e.mBitmap;
-		}
-		return null;
-	}
-
-	public synchronized void put(int pos, Bitmap bitmap) {
-		// First see if we already have this entry.
-		if (findEntry(pos) != null) {
-			return;
+			return imageView;
 		}
 
-		// Find the best entry we should replace.
-		// See if there is any empty entry.
-		// Otherwise assuming sequential access, kick out the entry with the
-		// greatest distance.
-		Entry best = null;
-		int maxDist = -1;
-		for (Entry e : mCache) {
-			if (e.mPos == -1) {
-				best = e;
-				break;
-			} else {
-				int dist = Math.abs(pos - e.mPos);
-				if (dist > maxDist) {
-					maxDist = dist;
-					best = e;
-				}
-			}
+		@Override
+		public void destroyItem(View container, int position, Object object) {
+			Log.d(TAG, "destroyItem");
+			ImageViewTouch imageView = (ImageViewTouch) object;
+			imageView.mBitmapDisplayed.recycle();
+			imageView.clear();
+			((ViewPager) container).removeView(imageView);
+			views.remove(position);
 		}
 
-		// Recycle the image being kicked out.
-		// This only works because our current usage is sequential, so we
-		// do not happen to recycle the image being displayed.
-		if (best.mBitmap != null) {
-			best.mBitmap.recycle();
+		@Override
+		public void startUpdate(View container) {
+			Log.d(TAG, "startUpdate");
 		}
 
-		best.mPos = pos;
-		best.mBitmap = bitmap;
-	}
-
-	// Recycle all bitmaps in the cache and clear the cache.
-	public synchronized void clear() {
-		for (Entry e : mCache) {
-			if (e.mBitmap != null) {
-				e.mBitmap.recycle();
-			}
-			e.clear();
+		@Override
+		public void finishUpdate(View container) {
+			Log.d(TAG, "finishUpdate");
 		}
-	}
 
-	// Returns whether the bitmap is in the cache.
-	public synchronized boolean hasBitmap(int pos) {
-		Entry e = findEntry(pos);
-		return (e != null);
-	}
-
-	// Recycle the bitmap if it's not in the cache.
-	// The input must be non-null.
-	public synchronized void recycle(Bitmap b) {
-		for (Entry e : mCache) {
-			if (e.mPos != -1) {
-				if (e.mBitmap == b) {
-					return;
-				}
-			}
+		@Override
+		public boolean isViewFromObject(View view, Object object) {
+			Log.d(TAG, "isViewFromObject");
+			return view == ((ImageViewTouch) object);
 		}
-		b.recycle();
+
+		@Override
+		public Parcelable saveState() {
+			Log.d(TAG, "saveState");
+			return null;
+		}
+
+		@Override
+		public void restoreState(Parcelable state, ClassLoader loader) {
+			Log.d(TAG, "restoreState");
+		}
 	}
 }
