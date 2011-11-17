@@ -210,9 +210,8 @@ public class ScaleGestureDetector {
 				break;
 
 			case MotionEvent.ACTION_MOVE:
-				Log.d(TAG, "scale gesture move mSloppyGesture not in");
 				if (mSloppyGesture) {
-					Log.d(TAG, "scale gesture move mSloppyGesture");
+//					Log.d(TAG, "scale gesture move mSloppyGesture");
 					// Initiate sloppy gestures if we've moved outside of the
 					// slop area.
 					final float edgeSlop = mEdgeSlop;
@@ -267,7 +266,7 @@ public class ScaleGestureDetector {
 				break;
 
 			case MotionEvent.ACTION_MOVE:
-				Log.d(TAG, "scale gesture move");
+//				Log.d(TAG, "scale gesture move");
 				setContext(event);
 
 				mMiddleX = (event.getX(0) + event.getX(1)) / 2;

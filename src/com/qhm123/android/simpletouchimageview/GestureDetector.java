@@ -569,7 +569,7 @@ public class GestureDetector {
 			break;
 
 		case MotionEvent.ACTION_MOVE:
-			Log.d(TAG, "gesture move");
+//			Log.d(TAG, "gesture move");
 			if (mInLongPress || (mIgnoreMultitouch && ev.getPointerCount() > 1)) {
 				Log.d(TAG, "gesture move break");
 				break;

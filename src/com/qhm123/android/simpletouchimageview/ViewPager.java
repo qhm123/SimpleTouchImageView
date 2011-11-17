@@ -54,6 +54,7 @@ public class ViewPager extends ViewGroup {
 
 	private static final int DEFAULT_OFFSCREEN_PAGES = 1;
 	private static final int MAX_SETTLE_DURATION = 600; // ms
+	private static final int PAGER_NEXT_MARGIN_DP = 40;
 
 	static class ItemInfo {
 		Object object;
@@ -128,6 +129,8 @@ public class ViewPager extends ViewGroup {
 	private int mMaximumVelocity;
 	private float mBaseLineFlingVelocity;
 	private float mFlingVelocityInfluence;
+
+	private int mPagerNextMarginPixels;
 
 	private boolean mFakeDragging;
 	private long mFakeDragBeginTime;
@@ -255,6 +258,9 @@ public class ViewPager extends ViewGroup {
 		float density = context.getResources().getDisplayMetrics().density;
 		mBaseLineFlingVelocity = 2500.0f * density;
 		mFlingVelocityInfluence = 0.4f;
+
+		final float scale = getResources().getDisplayMetrics().density;
+		mPagerNextMarginPixels = (int) (PAGER_NEXT_MARGIN_DP * scale + 0.5f);
 	}
 
 	private void setScrollState(int newState) {
@@ -1306,17 +1312,40 @@ public class ViewPager extends ViewGroup {
 				// int nextPage = initialVelocity > 300 ? currentPage + 1
 				// : currentPage;
 
+				int currentPage = scrollX / widthWithMargin;
+				// int nextPage = (diffMargin || diifVelocity) ? currentPage + 1
+				// : currentPage;
+				int leftPageScorll = scrollX % widthWithMargin;
+				int nextPage = currentPage;
+				float chargeVelocity = initialVelocity;
+				if (chargeVelocity > 0) {
+					if (widthWithMargin - leftPageScorll > mPagerNextMarginPixels) {
+						nextPage = currentPage;
+					} else {
+						nextPage = currentPage + 1;
+					}
+
+					// chargeVelocity -= 200;
+				} else {
+					// 向左
+					if (leftPageScorll > mPagerNextMarginPixels) {
+						nextPage = currentPage + 1;
+					} else {
+						nextPage = currentPage;
+					}
+
+					// chargeVelocity += 200;
+				}
+
+				// currentPage = (scrollX - currentPage * widthWithMargin);
+
+				// nextPage = chargeVelocity > 0 ? currentPage
+				// : currentPage + 1;
 				Log.d(TAG, "initialVelocity:" + initialVelocity
 						+ ", currentPage: " + (scrollX / widthWithMargin)
 						+ ", widthWithMargin: " + widthWithMargin
-						+ ", scrollX: " + scrollX);
-
-				final int currentPage = scrollX / widthWithMargin;
-				// int nextPage = (diffMargin || diifVelocity) ? currentPage + 1
-				// : currentPage;
-
-				int nextPage = initialVelocity > 0 ? currentPage
-						: currentPage + 1;
+						+ ", scrollX: " + scrollX + ", chargeVelocity: "
+						+ chargeVelocity + ", nextPage: " + nextPage);
 				setCurrentItemInternal(nextPage, true, true, initialVelocity);
 
 				mActivePointerId = INVALID_POINTER;

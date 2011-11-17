@@ -16,13 +16,11 @@ import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.os.Bundle;
 import android.os.Parcelable;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.RelativeLayout;
-import android.widget.ViewSwitcher;
 import android.widget.ZoomButtonsController;
 
 public class TouchImageActivity extends Activity {
@@ -66,39 +64,9 @@ public class TouchImageActivity extends Activity {
 			mImageList.add(file.getPath());
 		}
 
-		setupZoomButtonController(mRootLayout);
+		// setupZoomButtonController(mRootLayout);
 		setupOnTouchListeners(mViewPager);
 	}
-
-	ViewPager.OnPageChangeListener mPageChangeListener = new ViewPager.OnPageChangeListener() {
-		@Override
-		public void onPageSelected(int position, int prePosition) {
-			Log.d(TAG, "onPageSelected" + position + ", prePosition: "
-					+ prePosition);
-			ImageViewTouch preImageView = mPagerAdapter.views.get(prePosition);
-			preImageView.setImageBitmapResetBase(
-					preImageView.mBitmapDisplayed.getBitmap(), true);
-		}
-
-		@Override
-		public void onPageScrolled(int position, float positionOffset,
-				int positionOffsetPixels) {
-			Log.d(TAG, "onPageScrolled");
-			mOnPagerScoll = true;
-		}
-
-		@Override
-		public void onPageScrollStateChanged(int state) {
-			Log.d(TAG, "onPageScrollStateChanged: " + state);
-			if (state == ViewPager.SCROLL_STATE_DRAGGING) {
-				mOnPagerScoll = true;
-			} else if (state == ViewPager.SCROLL_STATE_SETTLING) {
-				mOnPagerScoll = false;
-			} else {
-				mOnPagerScoll = false;
-			}
-		}
-	};
 
 	// decodes image and scales it to reduce memory consumption
 	private Bitmap decodeFile(File f) {
@@ -133,6 +101,9 @@ public class TouchImageActivity extends Activity {
 	}
 
 	private void updateZoomButtonsEnabled() {
+		if (mZoomButtonsController == null) {
+			return;
+		}
 		ImageViewTouch imageView = getCurrentImageView();
 		float scale = imageView.getScale();
 		mZoomButtonsController.setZoomInEnabled(scale < imageView.mMaxZoom);
@@ -159,6 +130,9 @@ public class TouchImageActivity extends Activity {
 
 		OnTouchListener rootListener = new OnTouchListener() {
 			public boolean onTouch(View v, MotionEvent event) {
+				if (mZoomButtonsController != null) {
+					mZoomButtonsController.onTouch(v, event);
+				}
 				// NOTE: gestureDetector may handle onScroll..
 				if (!mOnScale && event.getPointerCount() == 1) {
 					if (!mOnPagerScoll) {
@@ -177,16 +151,11 @@ public class TouchImageActivity extends Activity {
 							.getBitmap().getWidth(), imageView.mBitmapDisplayed
 							.getBitmap().getHeight());
 					m.mapRect(rect);
-					Log.d(TAG, "rect.right: " + rect.right + ", rect.left: "
-							+ rect.left + ", imageView.getWidth(): "
-							+ imageView.getWidth());
-					if (rect.right > imageView.getWidth() + 0.1
-							&& rect.left < -0.1) {
-						// float diff = imageView.getWidth() - rect.right;
-						// if (diff >= -0.1f) {
-						// mViewPager.onTouchEvent(event);
-						// }
-					} else {
+					// Log.d(TAG, "rect.right: " + rect.right + ", rect.left: "
+					// + rect.left + ", imageView.getWidth(): "
+					// + imageView.getWidth());
+					// 图片超出屏幕范围后移动
+					if (!(rect.right > imageView.getWidth() + 0.1 && rect.left < -0.1)) {
 						try {
 							mViewPager.onTouchEvent(event);
 						} catch (ArrayIndexOutOfBoundsException e) {
@@ -226,6 +195,9 @@ public class TouchImageActivity extends Activity {
 	}
 
 	private void setupZoomButtonController(final View ownerView) {
+		if (mZoomButtonsController != null) {
+			mZoomButtonsController.setVisible(false);
+		}
 		mZoomButtonsController = new ZoomButtonsController(ownerView);
 		mZoomButtonsController.setZoomSpeed(100);
 		mZoomButtonsController.getZoomControls();
@@ -253,13 +225,47 @@ public class TouchImageActivity extends Activity {
 				.getCurrentItem()));
 	}
 
+	ViewPager.OnPageChangeListener mPageChangeListener = new ViewPager.OnPageChangeListener() {
+		@Override
+		public void onPageSelected(int position, int prePosition) {
+			// Log.d(TAG, "onPageSelected" + position + ", prePosition: "
+			// + prePosition);
+			ImageViewTouch preImageView = mPagerAdapter.views.get(prePosition);
+			if (preImageView != null) {
+				preImageView.setImageBitmapResetBase(
+						preImageView.mBitmapDisplayed.getBitmap(), true);
+			}
+
+			updateZoomButtonsEnabled();
+		}
+
+		@Override
+		public void onPageScrolled(int position, float positionOffset,
+				int positionOffsetPixels) {
+			// Log.d(TAG, "onPageScrolled");
+			mOnPagerScoll = true;
+		}
+
+		@Override
+		public void onPageScrollStateChanged(int state) {
+			// Log.d(TAG, "onPageScrollStateChanged: " + state);
+			if (state == ViewPager.SCROLL_STATE_DRAGGING) {
+				mOnPagerScoll = true;
+			} else if (state == ViewPager.SCROLL_STATE_SETTLING) {
+				mOnPagerScoll = false;
+			} else {
+				mOnPagerScoll = false;
+			}
+		}
+	};
+
 	private class MyGestureListener extends
 			GestureDetector.SimpleOnGestureListener {
 
 		@Override
 		public boolean onScroll(MotionEvent e1, MotionEvent e2,
 				float distanceX, float distanceY) {
-			Log.d(TAG, "gesture onScroll");
+			// Log.d(TAG, "gesture onScroll");
 			if (mOnScale) {
 				return true;
 			}
@@ -283,7 +289,13 @@ public class TouchImageActivity extends Activity {
 
 		@Override
 		public boolean onSingleTapConfirmed(MotionEvent e) {
+			setupZoomButtonController(getCurrentImageView());
+			// if (mZoomButtonsController.isVisible()) {
+			// mZoomButtonsController.onTouch(null, e);
+			// }
+			// else {
 			mZoomButtonsController.setVisible(true);
+			// }
 			return true;
 		}
 
@@ -343,19 +355,19 @@ public class TouchImageActivity extends Activity {
 					mOnScale = false;
 				}
 			}, 300);
-			Log.d(TAG, "gesture onScaleEnd");
+			// Log.d(TAG, "gesture onScaleEnd");
 		}
 
 		@Override
 		public boolean onScaleBegin(ScaleGestureDetector detector) {
-			Log.d(TAG, "gesture onScaleStart");
+			// Log.d(TAG, "gesture onScaleStart");
 			mOnScale = true;
 			return true;
 		}
 
 		@Override
 		public boolean onScale(ScaleGestureDetector detector, float mx, float my) {
-			Log.d(TAG, "gesture onScale");
+			// Log.d(TAG, "gesture onScale");
 			ImageViewTouch imageView = getCurrentImageView();
 			float ns = imageView.getScale() * detector.getScaleFactor();
 
@@ -381,7 +393,7 @@ public class TouchImageActivity extends Activity {
 
 		@Override
 		public Object instantiateItem(View container, int position) {
-			Log.d(TAG, "instantiateItem");
+			// Log.d(TAG, "instantiateItem");
 			ImageViewTouch imageView = new ImageViewTouch(
 					TouchImageActivity.this);
 			imageView.setLayoutParams(new LayoutParams(
@@ -401,7 +413,7 @@ public class TouchImageActivity extends Activity {
 
 		@Override
 		public void destroyItem(View container, int position, Object object) {
-			Log.d(TAG, "destroyItem");
+			// Log.d(TAG, "destroyItem");
 			ImageViewTouch imageView = (ImageViewTouch) object;
 			imageView.mBitmapDisplayed.recycle();
 			imageView.clear();
@@ -411,29 +423,29 @@ public class TouchImageActivity extends Activity {
 
 		@Override
 		public void startUpdate(View container) {
-			Log.d(TAG, "startUpdate");
+			// Log.d(TAG, "startUpdate");
 		}
 
 		@Override
 		public void finishUpdate(View container) {
-			Log.d(TAG, "finishUpdate");
+			// Log.d(TAG, "finishUpdate");
 		}
 
 		@Override
 		public boolean isViewFromObject(View view, Object object) {
-			Log.d(TAG, "isViewFromObject");
+			// Log.d(TAG, "isViewFromObject");
 			return view == ((ImageViewTouch) object);
 		}
 
 		@Override
 		public Parcelable saveState() {
-			Log.d(TAG, "saveState");
+			// Log.d(TAG, "saveState");
 			return null;
 		}
 
 		@Override
 		public void restoreState(Parcelable state, ClassLoader loader) {
-			Log.d(TAG, "restoreState");
+			// Log.d(TAG, "restoreState");
 		}
 	}
 }

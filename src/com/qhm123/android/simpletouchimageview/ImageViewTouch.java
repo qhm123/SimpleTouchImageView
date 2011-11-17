@@ -275,7 +275,7 @@ class ImageViewTouch extends ImageView {
 		// float widthScale = viewWidth / w;
 		// float heightScale = viewHeight / h;
 		float scale = Math.min(widthScale, heightScale);
-		Log.d(TAG, "scale: " + scale);
+//		Log.d(TAG, "scale: " + scale);
 
 		matrix.postConcat(bitmap.getRotateMatrix());
 
