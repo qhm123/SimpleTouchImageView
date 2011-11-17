@@ -1304,28 +1304,19 @@ public class ViewPager extends ViewGroup {
 				mPopulatePending = true;
 				final int widthWithMargin = getWidth() + mPageMargin;
 				final int scrollX = getScrollX();
-				// + 100 多出距离
-				boolean diffMargin = (scrollX % widthWithMargin) > widthWithMargin / 4 ? true
-						: false;
-				boolean diifVelocity = initialVelocity < -200 ? true : false;
-				// final int currentPage = scrollX / (widthWithMargin / 3);
-				// int nextPage = initialVelocity > 300 ? currentPage + 1
-				// : currentPage;
 
+				// 增加边距判断
 				int currentPage = scrollX / widthWithMargin;
-				// int nextPage = (diffMargin || diifVelocity) ? currentPage + 1
-				// : currentPage;
 				int leftPageScorll = scrollX % widthWithMargin;
 				int nextPage = currentPage;
 				float chargeVelocity = initialVelocity;
 				if (chargeVelocity > 0) {
+					// 向右
 					if (widthWithMargin - leftPageScorll > mPagerNextMarginPixels) {
 						nextPage = currentPage;
 					} else {
 						nextPage = currentPage + 1;
 					}
-
-					// chargeVelocity -= 200;
 				} else {
 					// 向左
 					if (leftPageScorll > mPagerNextMarginPixels) {
@@ -1333,19 +1324,16 @@ public class ViewPager extends ViewGroup {
 					} else {
 						nextPage = currentPage;
 					}
-
-					// chargeVelocity += 200;
 				}
-
-				// currentPage = (scrollX - currentPage * widthWithMargin);
 
 				// nextPage = chargeVelocity > 0 ? currentPage
 				// : currentPage + 1;
-				Log.d(TAG, "initialVelocity:" + initialVelocity
-						+ ", currentPage: " + (scrollX / widthWithMargin)
-						+ ", widthWithMargin: " + widthWithMargin
-						+ ", scrollX: " + scrollX + ", chargeVelocity: "
-						+ chargeVelocity + ", nextPage: " + nextPage);
+				
+				// Log.d(TAG, "initialVelocity:" + initialVelocity
+				// + ", currentPage: " + (scrollX / widthWithMargin)
+				// + ", widthWithMargin: " + widthWithMargin
+				// + ", scrollX: " + scrollX + ", chargeVelocity: "
+				// + chargeVelocity + ", nextPage: " + nextPage);
 				setCurrentItemInternal(nextPage, true, true, initialVelocity);
 
 				mActivePointerId = INVALID_POINTER;

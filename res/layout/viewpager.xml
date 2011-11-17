@@ -12,8 +12,9 @@
     <RelativeLayout
         android:id="@+id/ll_header"
         android:layout_width="fill_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="40dp"
         android:layout_alignTop="@id/viewPager"
+        android:background="#88000000"
         android:gravity="top" >
 
         <TextView
@@ -29,7 +30,14 @@
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
         android:layout_alignBottom="@id/viewPager"
+        android:background="#88000000"
         android:gravity="bottom" >
+
+        <Button
+            android:id="@+id/btn_open"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="打开" />
 
         <Button
             android:id="@+id/btn_pre"
@@ -37,29 +45,32 @@
             android:layout_height="wrap_content"
             android:text="前一张" />
 
+        <TextView
+            android:id="@+id/tv_pic_name"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="图片名" />
+
         <Button
             android:id="@+id/btn_next"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="后一张" />
 
-        <TextView
-            android:id="@+id/tv_pic_name"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="图片名" />
-
         <Button
-            android:id="@+id/btn_zoom_in"
+            android:id="@+id/btn_dialog"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="放大" />
-
-        <Button
-            android:id="@+id/btn_zoom_out"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="缩小" />
+            android:text="更多" />
     </LinearLayout>
+
+    <ZoomControls
+        android:id="@+id/zoomButtons"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/ll_bottom"
+        android:layout_alignParentRight="true" />
 
 </RelativeLayout>

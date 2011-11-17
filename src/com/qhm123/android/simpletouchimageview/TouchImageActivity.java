@@ -9,16 +9,19 @@ import java.util.List;
 import java.util.Map;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.RectF;
+import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
 import android.os.Parcelable;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -29,41 +32,61 @@ import android.view.animation.AlphaAnimation;
 import android.widget.Button;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
-import android.widget.ZoomButtonsController;
+import android.widget.ZoomControls;
 
 public class TouchImageActivity extends Activity implements OnClickListener {
 
-	public static final String TAG = TouchImageActivity.class.getSimpleName();
+	private static final String TAG = TouchImageActivity.class.getSimpleName();
+
+	private static final int REQUIRED_BITMAP_SIZE = 400;
+	private static final int SHOW_HIDE_CONTROL_ANIMATION_TIME = 500;
+
 	private static final int PAGER_MARGIN_DP = 40;
+	private static final int HIDE_CONTROLS_DELAY = 5000;
 
 	private static final int MSG_HIDE_CONTROLS = 1;
-	private static final int MSG_SHOW_CONTROLS = 2;
 
 	private RelativeLayout mRootLayout;
 	private ViewPager mViewPager;
-
 	private ViewGroup mHeader;
 	private ViewGroup mBottom;
 	private TextView mPageShwo;
 	private TextView mPicName;
 	private Button mNext;
 	private Button mPrevious;
-	private Button mZoomIn;
-	private Button mZoomOut;
+	// private Button mZoomIn;
+	// private Button mZoomOut;
+	private Button mOpen;
+	private Button mMore;
+	private ZoomControls mZoomButtons;
+	private AlertDialog mMoreDialog;
 
 	private ImagePagerAdapter mPagerAdapter;
-
-	private ZoomButtonsController mZoomButtonsController;
 
 	private GestureDetector mGestureDetector;
 	private ScaleGestureDetector mScaleGestureDetector;
 
-	private List<String> mImageList;
 	private boolean mPaused;
 	private boolean mOnScale = false;
 	private boolean mOnPagerScoll = false;
-	private int mPosition;
 	private boolean mControlsShow = false;
+
+	// 传入参数
+	private List<String> mImageList;
+	private int mPosition;
+
+	// // 控制控制栏延迟隐藏
+	// private final Handler mHandler = new Handler() {
+	// @Override
+	// public void handleMessage(Message msg) {
+	// Log.d(TAG, "msg.what: " + msg.what);
+	// switch (msg.what) {
+	// case MSG_HIDE_CONTROLS:
+	// hideControls();
+	// break;
+	// }
+	// }
+	// };
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -74,24 +97,36 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 		mViewPager = (ViewPager) findViewById(R.id.viewPager);
 		mHeader = (ViewGroup) findViewById(R.id.ll_header);
 		mBottom = (ViewGroup) findViewById(R.id.ll_bottom);
-		// mBottom.setOnTouchListener(new OnTouchListener() {
-		// @Override
-		// public boolean onTouch(View v, MotionEvent event) {
-		// mHandler.removeMessages(MSG_HIDE_CONTROLS);
-		// mHandler.sendEmptyMessageDelayed(MSG_HIDE_CONTROLS, 5000);
-		// return false;
-		// }
-		// });
 		mPageShwo = (TextView) findViewById(R.id.tv_page);
 		mPicName = (TextView) findViewById(R.id.tv_pic_name);
 		mNext = (Button) findViewById(R.id.btn_next);
 		mNext.setOnClickListener(this);
 		mPrevious = (Button) findViewById(R.id.btn_pre);
 		mPrevious.setOnClickListener(this);
-		mZoomIn = (Button) findViewById(R.id.btn_zoom_in);
-		mZoomIn.setOnClickListener(this);
-		mZoomOut = (Button) findViewById(R.id.btn_zoom_out);
-		mZoomOut.setOnClickListener(this);
+		mOpen = (Button) findViewById(R.id.btn_open);
+		mOpen.setOnClickListener(this);
+		mMore = (Button) findViewById(R.id.btn_dialog);
+		mMore.setOnClickListener(this);
+		// mZoomIn = (Button) findViewById(R.id.btn_zoom_in);
+		// mZoomIn.setOnClickListener(this);
+		// mZoomOut = (Button) findViewById(R.id.btn_zoom_out);
+		// mZoomOut.setOnClickListener(this);
+		mZoomButtons = (ZoomControls) findViewById(R.id.zoomButtons);
+		mZoomButtons.setZoomSpeed(100);
+		mZoomButtons.setOnZoomInClickListener(new OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				getCurrentImageView().zoomIn();
+				updateZoomButtonsEnabled();
+			}
+		});
+		mZoomButtons.setOnZoomOutClickListener(new OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				getCurrentImageView().zoomOut();
+				updateZoomButtonsEnabled();
+			}
+		});
 
 		final float scale = getResources().getDisplayMetrics().density;
 		int pagerMarginPixels = (int) (PAGER_MARGIN_DP * scale + 0.5f);
@@ -100,27 +135,19 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 		mPagerAdapter = new ImagePagerAdapter();
 		mViewPager.setAdapter(mPagerAdapter);
 		mViewPager.setOnPageChangeListener(mPageChangeListener);
+		setupOnTouchListeners(mViewPager);
 
+		// 参数传入
 		mImageList = new ArrayList<String>();
 		for (File file : new File("/mnt/sdcard/MIUI/photo/cars").listFiles()) {
 			mImageList.add(file.getPath());
 		}
-		mPosition = 3;
-
-		// setupZoomButtonController(mRootLayout);
-		setupOnTouchListeners(mViewPager);
+		mPosition = 5;
 
 		mViewPager.setCurrentItem(mPosition, false);
-
 		updateShowInfo();
 		updatePreNextButtonEnable();
 		hideControls();
-	}
-
-	@Override
-	protected void onPostResume() {
-		super.onPostResume();
-
 	}
 
 	private void updateShowInfo() {
@@ -131,50 +158,54 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 		}
 	}
 
-	private final Handler mHandler = new Handler() {
-		@Override
-		public void handleMessage(Message msg) {
-			Log.d(TAG, "msg.what: " + msg.what);
-			switch (msg.what) {
-			case MSG_HIDE_CONTROLS:
-				hideControls();
-				break;
-			case MSG_SHOW_CONTROLS:
-				showControls();
-				break;
-			}
+	private void updatePreNextButtonEnable() {
+		mPrevious.setEnabled(mPosition > 0);
+		mNext.setEnabled(mPosition < mImageList.size() - 1);
+	}
+
+	private void updateZoomButtonsEnabled() {
+		ImageViewTouch imageView = getCurrentImageView();
+		if (imageView != null) {
+			float scale = imageView.getScale();
+			// mZoomIn.setEnabled(scale < imageView.mMaxZoom);
+			// mZoomOut.setEnabled(scale > imageView.mMinZoom);
+			mZoomButtons.setIsZoomInEnabled(scale < imageView.mMaxZoom);
+			mZoomButtons.setIsZoomOutEnabled(scale > imageView.mMinZoom);
 		}
-	};
+	}
 
 	private void showControls() {
 		AlphaAnimation animation = new AlphaAnimation(0f, 1f);
 		animation.setFillAfter(true);
-		animation.setDuration(1000);
+		animation.setDuration(SHOW_HIDE_CONTROL_ANIMATION_TIME);
+		mZoomButtons.startAnimation(animation);
 		mHeader.startAnimation(animation);
 		mBottom.startAnimation(animation);
 
 		mControlsShow = true;
+		mZoomButtons.setVisibility(View.VISIBLE);
 		mHeader.setVisibility(View.VISIBLE);
 		mBottom.setVisibility(View.VISIBLE);
-		// mHandler.postDelayed(new Runnable() {
-		// @Override
-		// public void run() {
-		// hideControls();
-		// }
-		// }, 5000);
 	}
 
 	private void hideControls() {
 		AlphaAnimation animation = new AlphaAnimation(1f, 0f);
 		animation.setFillAfter(true);
-		animation.setDuration(1000);
+		animation.setDuration(SHOW_HIDE_CONTROL_ANIMATION_TIME);
+		mZoomButtons.startAnimation(animation);
 		mHeader.startAnimation(animation);
 		mBottom.startAnimation(animation);
 
 		mControlsShow = false;
+		mZoomButtons.setVisibility(View.GONE);
 		mHeader.setVisibility(View.GONE);
 		mBottom.setVisibility(View.GONE);
 	}
+
+	// private void delayHideControls() {
+	// mHandler.removeMessages(MSG_HIDE_CONTROLS);
+	// mHandler.sendEmptyMessageDelayed(MSG_HIDE_CONTROLS, HIDE_CONTROLS_DELAY);
+	// }
 
 	private String getPositionFileName(int position) {
 		String path = mImageList.get(position);
@@ -196,7 +227,7 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 			BitmapFactory.decodeStream(new FileInputStream(f), null, o);
 
 			// The new size we want to scale to
-			final int REQUIRED_SIZE = 400;
+			final int REQUIRED_SIZE = REQUIRED_BITMAP_SIZE;
 
 			// Find the correct scale value. It should be the power of 2.
 			int width_tmp = o.outWidth, height_tmp = o.outHeight;
@@ -219,23 +250,6 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 		return null;
 	}
 
-	private void updateZoomButtonsEnabled() {
-		// if (mZoomButtonsController == null) {
-		// return;
-		// }
-		// ImageViewTouch imageView = getCurrentImageView();
-		// float scale = imageView.getScale();
-		// mZoomButtonsController.setZoomInEnabled(scale < imageView.mMaxZoom);
-		// mZoomButtonsController.setZoomOutEnabled(scale > imageView.mMinZoom);
-
-		ImageViewTouch imageView = getCurrentImageView();
-		if (imageView != null) {
-			float scale = imageView.getScale();
-			mZoomIn.setEnabled(scale < imageView.mMaxZoom);
-			mZoomOut.setEnabled(scale > imageView.mMinZoom);
-		}
-	}
-
 	@Override
 	public void onStart() {
 		super.onStart();
@@ -256,15 +270,11 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 
 		OnTouchListener rootListener = new OnTouchListener() {
 			public boolean onTouch(View v, MotionEvent event) {
-				if (mZoomButtonsController != null) {
-					mZoomButtonsController.onTouch(v, event);
-				}
 				// NOTE: gestureDetector may handle onScroll..
 				if (!mOnScale && event.getPointerCount() == 1) {
 					if (!mOnPagerScoll) {
 						mGestureDetector.onTouchEvent(event);
 					}
-
 				}
 				if (!mOnPagerScoll) {
 					mScaleGestureDetector.onTouchEvent(event);
@@ -304,47 +314,16 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 	public boolean dispatchTouchEvent(MotionEvent m) {
 		if (mPaused)
 			return true;
-		delayHideControls();
+		// delayHideControls();
 		return super.dispatchTouchEvent(m);
 	}
 
 	@Override
 	protected void onDestroy() {
-		// This is necessary to make the ZoomButtonsController unregister
-		// its configuration change receiver.
-		if (mZoomButtonsController != null) {
-			mZoomButtonsController.setVisible(false);
-		}
 		ImageViewTouch imageView = getCurrentImageView();
 		imageView.mBitmapDisplayed.recycle();
 		imageView.clear();
 		super.onDestroy();
-	}
-
-	private void setupZoomButtonController(final View ownerView) {
-		if (mZoomButtonsController != null) {
-			mZoomButtonsController.setVisible(false);
-		}
-		mZoomButtonsController = new ZoomButtonsController(ownerView);
-		mZoomButtonsController.setZoomSpeed(100);
-		mZoomButtonsController.getZoomControls();
-		mZoomButtonsController
-				.setOnZoomListener(new ZoomButtonsController.OnZoomListener() {
-					public void onVisibilityChanged(boolean visible) {
-						if (visible) {
-							updateZoomButtonsEnabled();
-						}
-					}
-
-					public void onZoom(boolean zoomIn) {
-						if (zoomIn) {
-							getCurrentImageView().zoomIn();
-						} else {
-							getCurrentImageView().zoomOut();
-						}
-						updateZoomButtonsEnabled();
-					}
-				});
 	}
 
 	private ImageViewTouch getCurrentImageView() {
@@ -365,7 +344,6 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 			mPosition = position;
 
 			updateZoomButtonsEnabled();
-
 			updateShowInfo();
 		}
 
@@ -388,11 +366,6 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 			}
 		}
 	};
-
-	private void delayHideControls() {
-		mHandler.removeMessages(MSG_HIDE_CONTROLS);
-		mHandler.sendEmptyMessageDelayed(MSG_HIDE_CONTROLS, 5000);
-	}
 
 	private class MyGestureListener extends
 			GestureDetector.SimpleOnGestureListener {
@@ -424,17 +397,14 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 
 		@Override
 		public boolean onSingleTapConfirmed(MotionEvent e) {
-			// 放大缩小按钮
-			// setupZoomButtonController(getCurrentImageView());
-			// mZoomButtonsController.setVisible(true);
 			if (mControlsShow) {
-
-				delayHideControls();
-				// hideControls();
+				// delayHideControls();
+				hideControls();
 			} else {
 				updateZoomButtonsEnabled();
 				showControls();
-				mHandler.sendEmptyMessageDelayed(MSG_HIDE_CONTROLS, 5000);
+				// mHandler.sendEmptyMessageDelayed(MSG_HIDE_CONTROLS,
+				// HIDE_CONTROLS_DELAY);
 			}
 
 			return true;
@@ -481,24 +451,19 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 
 			final ImageViewTouch imageView = getCurrentImageView();
 
-			// boolean useAni = false;
 			Log.d(TAG, "currentScale: " + currentScale + ", maxZoom: "
 					+ imageView.mMaxZoom);
 			if (currentScale > imageView.mMaxZoom) {
-
 				imageView
 						.zoomToNoCenterWithAni(currentScale
 								/ imageView.mMaxZoom, 1, currentMiddleX,
 								currentMiddleY);
-
 				currentScale = imageView.mMaxZoom;
 				imageView.zoomToNoCenterValue(currentScale, currentMiddleX,
 						currentMiddleY);
 			} else if (currentScale < imageView.mMinZoom) {
-
 				imageView.zoomToNoCenterWithAni(currentScale,
 						imageView.mMinZoom, currentMiddleX, currentMiddleY);
-
 				currentScale = imageView.mMinZoom;
 				imageView.zoomToNoCenterValue(currentScale, currentMiddleX,
 						currentMiddleY);
@@ -507,12 +472,9 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 						currentMiddleY);
 			}
 
-			// if (useAni) {
-			// imageView.centerWithAni(true, true);
-			// } else {
 			imageView.center(true, true);
-			// }
 
+			// NOTE: 延迟修正缩放后可能移动问题
 			imageView.postDelayed(new Runnable() {
 				@Override
 				public void run() {
@@ -566,7 +528,6 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 			imageView.setFocusableInTouchMode(true);
 
 			Bitmap b = decodeFile(new File(mImageList.get(position)));
-			// Bitmap b = BitmapFactory.decodeFile(mImageList.get(position));
 			imageView.setImageBitmapResetBase(b, true);
 
 			((ViewPager) container).addView(imageView);
@@ -613,23 +574,31 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 		}
 	}
 
-	private void updatePreNextButtonEnable() {
-		if (mPosition > 0) {
-			mPrevious.setEnabled(true);
-		} else {
-			mPrevious.setEnabled(false);
-		}
+	private Uri getCurrentImageUri() {
+		File file = new File(mImageList.get(mPosition));
+		return Uri.fromFile(file);
+	}
 
-		if (mPosition < mImageList.size() - 1) {
-			mNext.setEnabled(true);
-		} else {
-			mNext.setEnabled(false);
+	private AlertDialog getMoreDialog() {
+		if (mMoreDialog == null) {
+			AlertDialog.Builder builder = new AlertDialog.Builder(this);
+			LayoutInflater inflater = (LayoutInflater) this
+					.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+			View view = inflater.inflate(R.layout.moredialog, null);
+			builder.setView(view);
+			Button mail = (Button) view.findViewById(R.id.mail);
+			mail.setOnClickListener(this);
+			Button share = (Button) view.findViewById(R.id.share);
+			share.setOnClickListener(this);
+			Button close = (Button) view.findViewById(R.id.close);
+			close.setOnClickListener(this);
+			mMoreDialog = builder.create();
 		}
+		return mMoreDialog;
 	}
 
 	@Override
 	public void onClick(View v) {
-		delayHideControls();
 		switch (v.getId()) {
 		case R.id.btn_next:
 			if (mPosition < mImageList.size() - 1) {
@@ -643,14 +612,47 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 			}
 			updatePreNextButtonEnable();
 			break;
-		case R.id.btn_zoom_in:
-			getCurrentImageView().zoomIn();
-			updateZoomButtonsEnabled();
+		case R.id.btn_open: {
+			Intent intent = new Intent();
+			intent.setAction(android.content.Intent.ACTION_VIEW);
+			intent.setDataAndType(getCurrentImageUri(), "image/*");
+			startActivity(intent);
+		}
 			break;
-		case R.id.btn_zoom_out:
-			getCurrentImageView().zoomOut();
-			updateZoomButtonsEnabled();
+		case R.id.btn_dialog:
+			getMoreDialog().show();
 			break;
+		case R.id.mail: {
+			getMoreDialog().dismiss();
+
+			Intent intent = new Intent(Intent.ACTION_SEND);
+			intent.putExtra(Intent.EXTRA_STREAM, getCurrentImageUri());
+			intent.setType("message/rfc882");
+			Intent.createChooser(intent, "Choose Email Client");
+			startActivity(intent);
+		}
+			break;
+		case R.id.share: {
+			getMoreDialog().dismiss();
+
+			Intent intent = new Intent(Intent.ACTION_SEND);
+			intent.putExtra(Intent.EXTRA_STREAM, getCurrentImageUri());
+			intent.addCategory(Intent.CATEGORY_DEFAULT);
+			intent.setType("image/*");
+			startActivity(intent);
+		}
+			break;
+		case R.id.close:
+			getMoreDialog().dismiss();
+			break;
+		// case R.id.btn_zoom_in:
+		// getCurrentImageView().zoomIn();
+		// updateZoomButtonsEnabled();
+		// break;
+		// case R.id.btn_zoom_out:
+		// getCurrentImageView().zoomOut();
+		// updateZoomButtonsEnabled();
+		// break;
 		}
 	}
 }
