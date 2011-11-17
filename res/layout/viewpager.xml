@@ -9,4 +9,57 @@
         android:layout_width="fill_parent"
         android:layout_height="fill_parent" />
 
+    <RelativeLayout
+        android:id="@+id/ll_header"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignTop="@id/viewPager"
+        android:gravity="top" >
+
+        <TextView
+            android:id="@+id/tv_page"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="1/10" />
+    </RelativeLayout>
+
+    <LinearLayout
+        android:id="@+id/ll_bottom"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignBottom="@id/viewPager"
+        android:gravity="bottom" >
+
+        <Button
+            android:id="@+id/btn_pre"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="前一张" />
+
+        <Button
+            android:id="@+id/btn_next"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="后一张" />
+
+        <TextView
+            android:id="@+id/tv_pic_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="图片名" />
+
+        <Button
+            android:id="@+id/btn_zoom_in"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="放大" />
+
+        <Button
+            android:id="@+id/btn_zoom_out"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="缩小" />
+    </LinearLayout>
+
 </RelativeLayout>

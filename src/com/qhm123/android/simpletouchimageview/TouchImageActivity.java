@@ -15,21 +15,41 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.os.Parcelable;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.View.OnTouchListener;
+import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
+import android.view.animation.AlphaAnimation;
+import android.widget.Button;
 import android.widget.RelativeLayout;
+import android.widget.TextView;
 import android.widget.ZoomButtonsController;
 
-public class TouchImageActivity extends Activity {
+public class TouchImageActivity extends Activity implements OnClickListener {
 
 	public static final String TAG = TouchImageActivity.class.getSimpleName();
 	private static final int PAGER_MARGIN_DP = 40;
 
+	private static final int MSG_HIDE_CONTROLS = 1;
+	private static final int MSG_SHOW_CONTROLS = 2;
+
 	private RelativeLayout mRootLayout;
 	private ViewPager mViewPager;
+
+	private ViewGroup mHeader;
+	private ViewGroup mBottom;
+	private TextView mPageShwo;
+	private TextView mPicName;
+	private Button mNext;
+	private Button mPrevious;
+	private Button mZoomIn;
+	private Button mZoomOut;
 
 	private ImagePagerAdapter mPagerAdapter;
 
@@ -42,6 +62,8 @@ public class TouchImageActivity extends Activity {
 	private boolean mPaused;
 	private boolean mOnScale = false;
 	private boolean mOnPagerScoll = false;
+	private int mPosition;
+	private boolean mControlsShow = false;
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -50,6 +72,26 @@ public class TouchImageActivity extends Activity {
 
 		mRootLayout = (RelativeLayout) findViewById(R.id.rootLayout);
 		mViewPager = (ViewPager) findViewById(R.id.viewPager);
+		mHeader = (ViewGroup) findViewById(R.id.ll_header);
+		mBottom = (ViewGroup) findViewById(R.id.ll_bottom);
+		// mBottom.setOnTouchListener(new OnTouchListener() {
+		// @Override
+		// public boolean onTouch(View v, MotionEvent event) {
+		// mHandler.removeMessages(MSG_HIDE_CONTROLS);
+		// mHandler.sendEmptyMessageDelayed(MSG_HIDE_CONTROLS, 5000);
+		// return false;
+		// }
+		// });
+		mPageShwo = (TextView) findViewById(R.id.tv_page);
+		mPicName = (TextView) findViewById(R.id.tv_pic_name);
+		mNext = (Button) findViewById(R.id.btn_next);
+		mNext.setOnClickListener(this);
+		mPrevious = (Button) findViewById(R.id.btn_pre);
+		mPrevious.setOnClickListener(this);
+		mZoomIn = (Button) findViewById(R.id.btn_zoom_in);
+		mZoomIn.setOnClickListener(this);
+		mZoomOut = (Button) findViewById(R.id.btn_zoom_out);
+		mZoomOut.setOnClickListener(this);
 
 		final float scale = getResources().getDisplayMetrics().density;
 		int pagerMarginPixels = (int) (PAGER_MARGIN_DP * scale + 0.5f);
@@ -63,9 +105,86 @@ public class TouchImageActivity extends Activity {
 		for (File file : new File("/mnt/sdcard/MIUI/photo/cars").listFiles()) {
 			mImageList.add(file.getPath());
 		}
+		mPosition = 3;
 
 		// setupZoomButtonController(mRootLayout);
 		setupOnTouchListeners(mViewPager);
+
+		mViewPager.setCurrentItem(mPosition, false);
+
+		updateShowInfo();
+		updatePreNextButtonEnable();
+		hideControls();
+	}
+
+	@Override
+	protected void onPostResume() {
+		super.onPostResume();
+
+	}
+
+	private void updateShowInfo() {
+		if (mImageList.size() > 0) {
+			mPageShwo.setText(String.format("%d/%d", mPosition + 1,
+					mImageList.size()));
+			mPicName.setText(getPositionFileName(mPosition));
+		}
+	}
+
+	private final Handler mHandler = new Handler() {
+		@Override
+		public void handleMessage(Message msg) {
+			Log.d(TAG, "msg.what: " + msg.what);
+			switch (msg.what) {
+			case MSG_HIDE_CONTROLS:
+				hideControls();
+				break;
+			case MSG_SHOW_CONTROLS:
+				showControls();
+				break;
+			}
+		}
+	};
+
+	private void showControls() {
+		AlphaAnimation animation = new AlphaAnimation(0f, 1f);
+		animation.setFillAfter(true);
+		animation.setDuration(1000);
+		mHeader.startAnimation(animation);
+		mBottom.startAnimation(animation);
+
+		mControlsShow = true;
+		mHeader.setVisibility(View.VISIBLE);
+		mBottom.setVisibility(View.VISIBLE);
+		// mHandler.postDelayed(new Runnable() {
+		// @Override
+		// public void run() {
+		// hideControls();
+		// }
+		// }, 5000);
+	}
+
+	private void hideControls() {
+		AlphaAnimation animation = new AlphaAnimation(1f, 0f);
+		animation.setFillAfter(true);
+		animation.setDuration(1000);
+		mHeader.startAnimation(animation);
+		mBottom.startAnimation(animation);
+
+		mControlsShow = false;
+		mHeader.setVisibility(View.GONE);
+		mBottom.setVisibility(View.GONE);
+	}
+
+	private String getPositionFileName(int position) {
+		String path = mImageList.get(position);
+		String[] splits = path.split("/");
+		String name = "";
+		if (splits.length > 0) {
+			name = splits[splits.length - 1];
+		}
+
+		return name;
 	}
 
 	// decodes image and scales it to reduce memory consumption
@@ -101,13 +220,20 @@ public class TouchImageActivity extends Activity {
 	}
 
 	private void updateZoomButtonsEnabled() {
-		if (mZoomButtonsController == null) {
-			return;
-		}
+		// if (mZoomButtonsController == null) {
+		// return;
+		// }
+		// ImageViewTouch imageView = getCurrentImageView();
+		// float scale = imageView.getScale();
+		// mZoomButtonsController.setZoomInEnabled(scale < imageView.mMaxZoom);
+		// mZoomButtonsController.setZoomOutEnabled(scale > imageView.mMinZoom);
+
 		ImageViewTouch imageView = getCurrentImageView();
-		float scale = imageView.getScale();
-		mZoomButtonsController.setZoomInEnabled(scale < imageView.mMaxZoom);
-		mZoomButtonsController.setZoomOutEnabled(scale > imageView.mMinZoom);
+		if (imageView != null) {
+			float scale = imageView.getScale();
+			mZoomIn.setEnabled(scale < imageView.mMaxZoom);
+			mZoomOut.setEnabled(scale > imageView.mMinZoom);
+		}
 	}
 
 	@Override
@@ -178,6 +304,7 @@ public class TouchImageActivity extends Activity {
 	public boolean dispatchTouchEvent(MotionEvent m) {
 		if (mPaused)
 			return true;
+		delayHideControls();
 		return super.dispatchTouchEvent(m);
 	}
 
@@ -235,8 +362,11 @@ public class TouchImageActivity extends Activity {
 				preImageView.setImageBitmapResetBase(
 						preImageView.mBitmapDisplayed.getBitmap(), true);
 			}
+			mPosition = position;
 
 			updateZoomButtonsEnabled();
+
+			updateShowInfo();
 		}
 
 		@Override
@@ -258,6 +388,11 @@ public class TouchImageActivity extends Activity {
 			}
 		}
 	};
+
+	private void delayHideControls() {
+		mHandler.removeMessages(MSG_HIDE_CONTROLS);
+		mHandler.sendEmptyMessageDelayed(MSG_HIDE_CONTROLS, 5000);
+	}
 
 	private class MyGestureListener extends
 			GestureDetector.SimpleOnGestureListener {
@@ -289,13 +424,19 @@ public class TouchImageActivity extends Activity {
 
 		@Override
 		public boolean onSingleTapConfirmed(MotionEvent e) {
-			setupZoomButtonController(getCurrentImageView());
-			// if (mZoomButtonsController.isVisible()) {
-			// mZoomButtonsController.onTouch(null, e);
-			// }
-			// else {
-			mZoomButtonsController.setVisible(true);
-			// }
+			// 放大缩小按钮
+			// setupZoomButtonController(getCurrentImageView());
+			// mZoomButtonsController.setVisible(true);
+			if (mControlsShow) {
+
+				delayHideControls();
+				// hideControls();
+			} else {
+				updateZoomButtonsEnabled();
+				showControls();
+				mHandler.sendEmptyMessageDelayed(MSG_HIDE_CONTROLS, 5000);
+			}
+
 			return true;
 		}
 
@@ -338,16 +479,39 @@ public class TouchImageActivity extends Activity {
 
 			updateZoomButtonsEnabled();
 
-			ImageViewTouch imageView = getCurrentImageView();
+			final ImageViewTouch imageView = getCurrentImageView();
 
+			// boolean useAni = false;
+			Log.d(TAG, "currentScale: " + currentScale + ", maxZoom: "
+					+ imageView.mMaxZoom);
 			if (currentScale > imageView.mMaxZoom) {
+
+				imageView
+						.zoomToNoCenterWithAni(currentScale
+								/ imageView.mMaxZoom, 1, currentMiddleX,
+								currentMiddleY);
+
 				currentScale = imageView.mMaxZoom;
+				imageView.zoomToNoCenterValue(currentScale, currentMiddleX,
+						currentMiddleY);
 			} else if (currentScale < imageView.mMinZoom) {
+
+				imageView.zoomToNoCenterWithAni(currentScale,
+						imageView.mMinZoom, currentMiddleX, currentMiddleY);
+
 				currentScale = imageView.mMinZoom;
+				imageView.zoomToNoCenterValue(currentScale, currentMiddleX,
+						currentMiddleY);
+			} else {
+				imageView.zoomToNoCenter(currentScale, currentMiddleX,
+						currentMiddleY);
 			}
-			imageView.zoomToNoCenter(currentScale, currentMiddleX,
-					currentMiddleY);
+
+			// if (useAni) {
+			// imageView.centerWithAni(true, true);
+			// } else {
 			imageView.center(true, true);
+			// }
 
 			imageView.postDelayed(new Runnable() {
 				@Override
@@ -446,6 +610,47 @@ public class TouchImageActivity extends Activity {
 		@Override
 		public void restoreState(Parcelable state, ClassLoader loader) {
 			// Log.d(TAG, "restoreState");
+		}
+	}
+
+	private void updatePreNextButtonEnable() {
+		if (mPosition > 0) {
+			mPrevious.setEnabled(true);
+		} else {
+			mPrevious.setEnabled(false);
+		}
+
+		if (mPosition < mImageList.size() - 1) {
+			mNext.setEnabled(true);
+		} else {
+			mNext.setEnabled(false);
+		}
+	}
+
+	@Override
+	public void onClick(View v) {
+		delayHideControls();
+		switch (v.getId()) {
+		case R.id.btn_next:
+			if (mPosition < mImageList.size() - 1) {
+				mViewPager.setCurrentItem(++mPosition);
+			}
+			updatePreNextButtonEnable();
+			break;
+		case R.id.btn_pre:
+			if (mPosition > 0) {
+				mViewPager.setCurrentItem(--mPosition);
+			}
+			updatePreNextButtonEnable();
+			break;
+		case R.id.btn_zoom_in:
+			getCurrentImageView().zoomIn();
+			updateZoomButtonsEnabled();
+			break;
+		case R.id.btn_zoom_out:
+			getCurrentImageView().zoomOut();
+			updateZoomButtonsEnabled();
+			break;
 		}
 	}
 }
