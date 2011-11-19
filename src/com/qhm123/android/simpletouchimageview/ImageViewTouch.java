@@ -24,6 +24,12 @@ import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.view.KeyEvent;
+import android.view.ViewGroup.MarginLayoutParams;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.view.animation.ScaleAnimation;
+import android.view.animation.Transformation;
 import android.widget.ImageView;
 
 class ImageViewTouch extends ImageView {
@@ -49,7 +55,7 @@ class ImageViewTouch extends ImageView {
 
 	// This is the final matrix which is computed as the concatentation
 	// of the base matrix and the supplementary matrix.
-	private final Matrix mDisplayMatrix = new Matrix();
+	protected final Matrix mDisplayMatrix = new Matrix();
 
 	// Temporary buffer used for getting the values out of a matrix.
 	private final float[] mMatrixValues = new float[9];
@@ -164,6 +170,11 @@ class ImageViewTouch extends ImageView {
 	// is scaled larger than the view and is translated out of view
 	// then translate it back into view (i.e. eliminate black bars).
 	protected void center(boolean horizontal, boolean vertical) {
+		centerCharge(horizontal, vertical, false);
+	}
+
+	private void centerCharge(boolean horizontal, boolean vertical,
+			boolean hasAni) {
 		if (mBitmapDisplayed.getBitmap() == null) {
 			return;
 		}
@@ -203,7 +214,20 @@ class ImageViewTouch extends ImageView {
 		}
 
 		postTranslate(deltaX, deltaY);
-		setImageMatrix(getImageViewMatrix());
+
+		if (hasAni) {
+			// Animation animation = new MatrixTransformAnimation(
+			// getImageViewMatrix());
+			// animation.setDuration(500);
+			// animation.setFillAfter(true);
+			// startAnimation(animation);
+		} else {
+			setImageMatrix(getImageViewMatrix());
+		}
+	}
+
+	protected void centerWithAni(boolean horizontal, boolean vertical) {
+		centerCharge(horizontal, vertical, true);
 	}
 
 	public ImageViewTouch(Context context) {
@@ -251,7 +275,7 @@ class ImageViewTouch extends ImageView {
 		// float widthScale = viewWidth / w;
 		// float heightScale = viewHeight / h;
 		float scale = Math.min(widthScale, heightScale);
-		Log.d(TAG, "scale: " + scale);
+		// Log.d(TAG, "scale: " + scale);
 
 		matrix.postConcat(bitmap.getRotateMatrix());
 
@@ -360,6 +384,64 @@ class ImageViewTouch extends ImageView {
 		setImageMatrix(getImageViewMatrix());
 	}
 
+	public class MatrixTransformAnimation extends Animation {
+		Matrix mFrom;
+		Matrix mTo;
+
+		public MatrixTransformAnimation(Matrix from, Matrix to) {
+			mFrom = from;
+			mTo = to;
+		}
+
+		@Override
+		protected void applyTransformation(float interpolatedTime,
+				Transformation t) {
+			Matrix matrix = t.getMatrix();
+			// matrix.set(mMatrix);
+			float from = getValue(mFrom, Matrix.MSCALE_X);
+			float to = getValue(mTo, Matrix.MSCALE_X);
+			matrix.setScale(from / to, from / to);
+		}
+	}
+
+	protected void zoomToNoCenterValue(float scale, float centerX, float centerY) {
+		float oldScale = getScale();
+		float deltaScale = scale / oldScale;
+
+		mSuppMatrix.postScale(deltaScale, deltaScale, centerX, centerY);
+		getImageViewMatrix();
+	}
+
+	protected void zoomToNoCenterWithAni(float scale, float toScale,
+			float centerX, float centerY) {
+		ScaleAnimation animation = new ScaleAnimation(scale, toScale, scale,
+				toScale, centerX, centerY);
+		animation.setDuration(300);
+		animation.setAnimationListener(new ScaleAnimation.AnimationListener() {
+			@Override
+			public void onAnimationStart(Animation animation) {
+			}
+
+			@Override
+			public void onAnimationRepeat(Animation animation) {
+			}
+
+			@Override
+			public void onAnimationEnd(Animation animation) {
+				// setImageMatrix(getImageMatrix());
+			}
+		});
+		startAnimation(animation);
+
+		// float oldScale = getScale();
+		// float deltaScale = scale / oldScale;
+		// mSuppMatrix.postScale(deltaScale, deltaScale, centerX, centerY);
+		// Animation animation = new MatrixTransformAnimation(
+		// getImageViewMatrix(), getImageViewMatrix());
+		// animation.setDuration(300);
+		// startAnimation(animation);
+	}
+
 	protected void zoomIn() {
 		zoomIn(SCALE_RATE);
 	}
@@ -397,7 +479,11 @@ class ImageViewTouch extends ImageView {
 
 		if (getScale(tmp) < mMinZoom) {
 			mSuppMatrix.setScale(mMinZoom, mMinZoom, cx, cy);
-		} else {
+		}
+		// if (getScale(tmp) < 1F) {
+		// mSuppMatrix.setScale(1F, 1F, cx, cy);
+		// }
+		else {
 			mSuppMatrix.postScale(1F / rate, 1F / rate, cx, cy);
 		}
 		setImageMatrix(getImageViewMatrix());

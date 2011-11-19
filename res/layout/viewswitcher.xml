@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootLayout"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent" >
+
+    <ViewSwitcher
+        android:id="@+id/viewSwitcher"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent" >
+
+        <com.qhm123.android.simpletouchimageview.ImageViewTouch
+            android:id="@+id/image"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:background="#FF000000"
+            android:focusableInTouchMode="true" />
+
+        <com.qhm123.android.simpletouchimageview.ImageViewTouch
+            android:id="@+id/image1"
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:background="#FF000000"
+            android:focusableInTouchMode="true" />
+    </ViewSwitcher>
+
+</RelativeLayout>
