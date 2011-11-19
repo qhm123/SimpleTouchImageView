@@ -64,6 +64,7 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 	private ImagePagerAdapter mPagerAdapter;
 
 	private GestureDetector mGestureDetector;
+	private ScaleGestureDetector mScaleGestureDetector;
 
 	private boolean mPaused;
 	private boolean mOnScale = false;
@@ -263,6 +264,8 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 
 	private void setupOnTouchListeners(View rootView) {
 		mGestureDetector = new GestureDetector(this, new MyGestureListener());
+		mScaleGestureDetector = new ScaleGestureDetector(this,
+				new MyOnScaleGestureListener());
 
 		OnTouchListener rootListener = new OnTouchListener() {
 			public boolean onTouch(View v, MotionEvent event) {
