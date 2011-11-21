@@ -3,6 +3,7 @@ package com.qhm123.android.simpletouchimageview;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Message;
+import android.support.v4.view.MotionEventCompat;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.VelocityTracker;
@@ -504,25 +505,7 @@ public class GestureDetector {
 
 		boolean handled = false;
 
-		switch (action & MotionEvent.ACTION_MASK) {
-		case MotionEvent.ACTION_POINTER_DOWN:
-			if (mIgnoreMultitouch) {
-				// Multitouch event - abort.
-				cancel();
-			}
-			break;
-
-		case MotionEvent.ACTION_POINTER_UP:
-			// Ending a multitouch gesture and going back to 1 finger
-			if (mIgnoreMultitouch && ev.getPointerCount() == 2) {
-				int index = 0;
-				mLastMotionX = ev.getX(index);
-				mLastMotionY = ev.getY(index);
-				mVelocityTracker.recycle();
-				mVelocityTracker = VelocityTracker.obtain();
-			}
-			break;
-
+		switch (action & MotionEventCompat.ACTION_MASK) {
 		case MotionEvent.ACTION_DOWN:
 			if (mDoubleTapListener != null) {
 				boolean hadTapMessage = mHandler.hasMessages(TAP);
@@ -569,8 +552,8 @@ public class GestureDetector {
 			break;
 
 		case MotionEvent.ACTION_MOVE:
-//			Log.d(TAG, "gesture move");
-			if (mInLongPress || (mIgnoreMultitouch && ev.getPointerCount() > 1)) {
+			// Log.d(TAG, "gesture move");
+			if (mInLongPress) {
 				Log.d(TAG, "gesture move break");
 				break;
 			}

@@ -17,7 +17,10 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.RectF;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.util.Log;
@@ -131,6 +134,7 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 		final float scale = getResources().getDisplayMetrics().density;
 		int pagerMarginPixels = (int) (PAGER_MARGIN_DP * scale + 0.5f);
 		mViewPager.setPageMargin(pagerMarginPixels);
+		mViewPager.setPageMarginDrawable(new ColorDrawable(Color.BLACK));
 
 		mPagerAdapter = new ImagePagerAdapter();
 		mViewPager.setAdapter(mPagerAdapter);
@@ -139,10 +143,12 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 
 		// 参数传入
 		mImageList = new ArrayList<String>();
-		for (File file : new File("/mnt/sdcard/MIUI/photo/cars").listFiles()) {
+		// "/mnt/sdcard/MIUI/photo/cars"
+		// "/sdcard/download"
+		for (File file : new File("/sdcard/download").listFiles()) {
 			mImageList.add(file.getPath());
 		}
-		mPosition = 5;
+		mPosition = 0;
 
 		mViewPager.setCurrentItem(mPosition, false);
 		updateShowInfo();
@@ -263,24 +269,29 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 	}
 
 	private void setupOnTouchListeners(View rootView) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ECLAIR_MR1) {
+			mScaleGestureDetector = new ScaleGestureDetector(this,
+					new MyOnScaleGestureListener());
+		}
 		mGestureDetector = new GestureDetector(this, new MyGestureListener());
-		mScaleGestureDetector = new ScaleGestureDetector(this,
-				new MyOnScaleGestureListener());
 
 		OnTouchListener rootListener = new OnTouchListener() {
 			public boolean onTouch(View v, MotionEvent event) {
 				// NOTE: gestureDetector may handle onScroll..
-				if (!mOnScale && event.getPointerCount() == 1) {
+				if (!mOnScale) {
 					if (!mOnPagerScoll) {
 						mGestureDetector.onTouchEvent(event);
 					}
 				}
-				if (!mOnPagerScoll) {
-					mScaleGestureDetector.onTouchEvent(event);
+
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ECLAIR_MR1) {
+					if (!mOnPagerScoll) {
+						mScaleGestureDetector.onTouchEvent(event);
+					}
 				}
 
 				ImageViewTouch imageView = getCurrentImageView();
-				if (!mOnScale && !(event.getPointerCount() > 1)) {
+				if (!mOnScale) {
 					Matrix m = imageView.getImageViewMatrix();
 					RectF rect = new RectF(0, 0, imageView.mBitmapDisplayed
 							.getBitmap().getWidth(), imageView.mBitmapDisplayed
@@ -344,6 +355,7 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 
 			updateZoomButtonsEnabled();
 			updateShowInfo();
+			updatePreNextButtonEnable();
 		}
 
 		@Override
