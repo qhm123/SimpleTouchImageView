@@ -10,7 +10,9 @@ import java.util.Map;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.AlertDialog.Builder;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -18,7 +20,6 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.RectF;
 import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -45,9 +46,6 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 	private static final int SHOW_HIDE_CONTROL_ANIMATION_TIME = 500;
 
 	private static final int PAGER_MARGIN_DP = 40;
-	private static final int HIDE_CONTROLS_DELAY = 5000;
-
-	private static final int MSG_HIDE_CONTROLS = 1;
 
 	private RelativeLayout mRootLayout;
 	private ViewPager mViewPager;
@@ -57,8 +55,6 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 	private TextView mPicName;
 	private Button mNext;
 	private Button mPrevious;
-	// private Button mZoomIn;
-	// private Button mZoomOut;
 	private Button mOpen;
 	private Button mMore;
 	private ZoomControls mZoomButtons;
@@ -77,19 +73,6 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 	// 传入参数
 	private List<String> mImageList;
 	private int mPosition;
-
-	// // 控制控制栏延迟隐藏
-	// private final Handler mHandler = new Handler() {
-	// @Override
-	// public void handleMessage(Message msg) {
-	// Log.d(TAG, "msg.what: " + msg.what);
-	// switch (msg.what) {
-	// case MSG_HIDE_CONTROLS:
-	// hideControls();
-	// break;
-	// }
-	// }
-	// };
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -110,10 +93,6 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 		mOpen.setOnClickListener(this);
 		mMore = (Button) findViewById(R.id.btn_dialog);
 		mMore.setOnClickListener(this);
-		// mZoomIn = (Button) findViewById(R.id.btn_zoom_in);
-		// mZoomIn.setOnClickListener(this);
-		// mZoomOut = (Button) findViewById(R.id.btn_zoom_out);
-		// mZoomOut.setOnClickListener(this);
 		mZoomButtons = (ZoomControls) findViewById(R.id.zoomButtons);
 		mZoomButtons.setZoomSpeed(100);
 		mZoomButtons.setOnZoomInClickListener(new OnClickListener() {
@@ -143,11 +122,27 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 
 		// 参数传入
 		mImageList = new ArrayList<String>();
-		// "/mnt/sdcard/MIUI/photo/cars"
-		// "/sdcard/download"
-		for (File file : new File("/sdcard/download").listFiles()) {
-			mImageList.add(file.getPath());
+		String imagesDir = "/sdcard/DCIM/Camera/";
+		File dirFile = new File(imagesDir);
+		if (dirFile.exists()) {
+			for (File file : dirFile.listFiles()) {
+				mImageList.add(file.getPath());
+			}
 		}
+		if (mImageList.size() == 0) {
+			AlertDialog.Builder builder = new Builder(this);
+			builder.setMessage("请确保/sdcard/DCIM/Camera/目录下有图片，或者将imagesDir更换为有图片的路径。");
+			builder.setNeutralButton("退出",
+					new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+							TouchImageActivity.this.finish();
+							return;
+						}
+					});
+			builder.show();
+		}
+
 		mPosition = 0;
 
 		mViewPager.setCurrentItem(mPosition, false);
@@ -173,8 +168,6 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 		ImageViewTouch imageView = getCurrentImageView();
 		if (imageView != null) {
 			float scale = imageView.getScale();
-			// mZoomIn.setEnabled(scale < imageView.mMaxZoom);
-			// mZoomOut.setEnabled(scale > imageView.mMinZoom);
 			mZoomButtons.setIsZoomInEnabled(scale < imageView.mMaxZoom);
 			mZoomButtons.setIsZoomOutEnabled(scale > imageView.mMinZoom);
 		}
@@ -207,11 +200,6 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 		mHeader.setVisibility(View.GONE);
 		mBottom.setVisibility(View.GONE);
 	}
-
-	// private void delayHideControls() {
-	// mHandler.removeMessages(MSG_HIDE_CONTROLS);
-	// mHandler.sendEmptyMessageDelayed(MSG_HIDE_CONTROLS, HIDE_CONTROLS_DELAY);
-	// }
 
 	private String getPositionFileName(int position) {
 		String path = mImageList.get(position);
@@ -291,15 +279,15 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 				}
 
 				ImageViewTouch imageView = getCurrentImageView();
+				if (imageView == null) {
+					return true;
+				}
 				if (!mOnScale) {
 					Matrix m = imageView.getImageViewMatrix();
 					RectF rect = new RectF(0, 0, imageView.mBitmapDisplayed
 							.getBitmap().getWidth(), imageView.mBitmapDisplayed
 							.getBitmap().getHeight());
 					m.mapRect(rect);
-					// Log.d(TAG, "rect.right: " + rect.right + ", rect.left: "
-					// + rect.left + ", imageView.getWidth(): "
-					// + imageView.getWidth());
 					// 图片超出屏幕范围后移动
 					if (!(rect.right > imageView.getWidth() + 0.1 && rect.left < -0.1)) {
 						try {
@@ -324,15 +312,16 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 	public boolean dispatchTouchEvent(MotionEvent m) {
 		if (mPaused)
 			return true;
-		// delayHideControls();
 		return super.dispatchTouchEvent(m);
 	}
 
 	@Override
 	protected void onDestroy() {
 		ImageViewTouch imageView = getCurrentImageView();
-		imageView.mBitmapDisplayed.recycle();
-		imageView.clear();
+		if (imageView != null) {
+			imageView.mBitmapDisplayed.recycle();
+			imageView.clear();
+		}
 		super.onDestroy();
 	}
 
@@ -392,6 +381,9 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 				return false;
 			}
 			ImageViewTouch imageView = getCurrentImageView();
+			if (imageView == null) {
+				return true;
+			}
 			imageView.panBy(-distanceX, -distanceY);
 			imageView.center(true, true);
 
@@ -403,7 +395,6 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 
 		@Override
 		public boolean onUp(MotionEvent e) {
-			// getCurrentImageView().center(true, true);
 			return super.onUp(e);
 		}
 
@@ -415,8 +406,6 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 			} else {
 				updateZoomButtonsEnabled();
 				showControls();
-				// mHandler.sendEmptyMessageDelayed(MSG_HIDE_CONTROLS,
-				// HIDE_CONTROLS_DELAY);
 			}
 
 			return true;
@@ -428,6 +417,9 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 				return false;
 			}
 			ImageViewTouch imageView = getCurrentImageView();
+			if (imageView == null) {
+				return true;
+			}
 			// Switch between the original scale and 3x scale.
 			if (imageView.mBaseZoom < 1) {
 				if (imageView.getScale() > 2F) {
@@ -462,6 +454,9 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 			updateZoomButtonsEnabled();
 
 			final ImageViewTouch imageView = getCurrentImageView();
+			if (imageView == null) {
+				return;
+			}
 
 			Log.d(TAG, "currentScale: " + currentScale + ", maxZoom: "
 					+ imageView.mMaxZoom);
@@ -507,6 +502,9 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 		public boolean onScale(ScaleGestureDetector detector, float mx, float my) {
 			// Log.d(TAG, "gesture onScale");
 			ImageViewTouch imageView = getCurrentImageView();
+			if (imageView == null) {
+				return true;
+			}
 			float ns = imageView.getScale() * detector.getScaleFactor();
 
 			currentScale = ns;
@@ -591,24 +589,6 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 		return Uri.fromFile(file);
 	}
 
-	private AlertDialog getMoreDialog() {
-		if (mMoreDialog == null) {
-			AlertDialog.Builder builder = new AlertDialog.Builder(this);
-			LayoutInflater inflater = (LayoutInflater) this
-					.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-			View view = inflater.inflate(R.layout.moredialog, null);
-			builder.setView(view);
-			Button mail = (Button) view.findViewById(R.id.mail);
-			mail.setOnClickListener(this);
-			Button share = (Button) view.findViewById(R.id.share);
-			share.setOnClickListener(this);
-			Button close = (Button) view.findViewById(R.id.close);
-			close.setOnClickListener(this);
-			mMoreDialog = builder.create();
-		}
-		return mMoreDialog;
-	}
-
 	@Override
 	public void onClick(View v) {
 		switch (v.getId()) {
@@ -632,39 +612,7 @@ public class TouchImageActivity extends Activity implements OnClickListener {
 		}
 			break;
 		case R.id.btn_dialog:
-			getMoreDialog().show();
 			break;
-		case R.id.mail: {
-			getMoreDialog().dismiss();
-
-			Intent intent = new Intent(Intent.ACTION_SEND);
-			intent.putExtra(Intent.EXTRA_STREAM, getCurrentImageUri());
-			intent.setType("message/rfc882");
-			Intent.createChooser(intent, "Choose Email Client");
-			startActivity(intent);
-		}
-			break;
-		case R.id.share: {
-			getMoreDialog().dismiss();
-
-			Intent intent = new Intent(Intent.ACTION_SEND);
-			intent.putExtra(Intent.EXTRA_STREAM, getCurrentImageUri());
-			intent.addCategory(Intent.CATEGORY_DEFAULT);
-			intent.setType("image/*");
-			startActivity(intent);
-		}
-			break;
-		case R.id.close:
-			getMoreDialog().dismiss();
-			break;
-		// case R.id.btn_zoom_in:
-		// getCurrentImageView().zoomIn();
-		// updateZoomButtonsEnabled();
-		// break;
-		// case R.id.btn_zoom_out:
-		// getCurrentImageView().zoomOut();
-		// updateZoomButtonsEnabled();
-		// break;
 		}
 	}
 }
